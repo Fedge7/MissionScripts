@@ -1,0 +1,3 @@
+[submodule "fedgelib"]
+	path = fedgelib
+	url = git@github.com:Fedge7/fedgelib.git
