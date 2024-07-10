@@ -49,7 +49,7 @@ function FMS.INIT(missionDirectory, pathToFMS_, pathToMOOSE_)
 		FMS.info("FMS: MOOSE already loaded.", true)
 	else
 		local moosepath = pathToMOOSE_ or "MOOSE_INCLUDE\\Moose_Include_Static\\Moose.lua"
-		FMS.info("FMS: Loading MOOSE from " .. moosepath)
+		FMS.info("FMS: Loading MOOSE from " .. moosepath, true)
 		if FMS.LOAD(moosepath) then
 			initialized = initialized and true
 		else
@@ -60,7 +60,7 @@ function FMS.INIT(missionDirectory, pathToFMS_, pathToMOOSE_)
 
 	FMS._init.ConfigureMOOSE()
 
-	FMS.info("FMS: Loading Required FMS Modules.")
+	FMS.info("FMS: Loading Required FMS Modules.", true)
 	for _, mod in pairs(FMS._init.RequiredModules) do
 		local moduleLoaded = FMS.LoadModule(mod.name)
 		if not moduleLoaded then
@@ -69,10 +69,10 @@ function FMS.INIT(missionDirectory, pathToFMS_, pathToMOOSE_)
 		initialized = initialized and moduleLoaded
 	end
 
-	FMS.info("FMS: Loading Required FMS Scripts.")
+	FMS.info("FMS: Loading Required FMS Scripts.", true)
 	for _, mod in pairs(FMS._init.RequiredScripts) do
-		local status, result = FMS.LOAD(mod.path)
-		initialized = initialized and status
+		local scriptLoaded = FMS.LOAD(mod.path)
+		initialized = initialized and scriptLoaded
 	end
 	
 	local msg = "FMS: Fedge Mission Scripts Initialization "
@@ -113,6 +113,55 @@ function FMS.LoadModule(fmsModuleOrModuleName, forceReload_)
 	FMS.info("FMS: Loading Module ["..mod.name.."].", true)
 	FMS.LOAD(mod.path)
 	return FMS[mod.name] ~= nil
+end
+
+function FMS.INIT_STATIC()
+	FMS.info("Initializing Fedge Mission Scripts (FMS) STATICALLY.")
+
+	local initialized = true
+
+	-- Attempt to load MOOSE, if not already loaded.
+	if not FMS._init.CheckForMOOSE() then
+		FMS.info("FMS: MOOSE not found. Include it as a 'Do Script File' action in the ME.", true)
+	end
+
+	FMS._init.ConfigureMOOSE()
+
+	FMS.info("FMS: Checking Required FMS Modules.", true)
+	for _, mod in pairs(FMS._init.RequiredModules) do
+		local moduleLoaded = FMS.CheckForModule(mod.name)
+		if not moduleLoaded then
+			FMS.error("FMS: Failed to locate module ["..mod.name.."]")
+		end
+		initialized = initialized and moduleLoaded
+	end
+
+	FMS.info("FMS: Checking Required FMS Scripts.", true)
+	for _, mod in pairs(FMS._init.RequiredScripts) do
+		-- local status, result = FMS.LOAD(mod.path)
+		-- initialized = initialized and status
+		env.info("FMS: Required script ["..mod.name.."] expected to be included in MIZ.")
+	end
+	
+	local msg = "FMS: Fedge Mission Scripts Initialization: STATIC "
+	msg = msg .. (initialized and "SUCCESS" or "FAILURE")
+
+	if initialized then
+		FMS.info(msg)
+	else
+		FMS.error(msg)
+	end
+
+	FMS.INITIALIZED = initialized
+	return initialized
+end
+
+function FMS.CheckForModule(fmsModuleOrModuleName)
+	if type(fmsModuleOrModuleName) == 'string' then
+		return FMS[fmsModuleOrModuleName] ~= nil
+	elseif type(fmsModuleOrModuleName) == 'table' and fmsModuleOrModuleName.name and fmsModuleOrModuleName.path then
+		return FMS[fmsModuleOrModuleName.name] ~= nil
+	end
 end
 
 --- Returns an absolute path string for the given relativePath, relative to the FMS.MISSION_DIR.

@@ -71,22 +71,18 @@ function CTLD:_AddGroupsFromSTM( isCrated, templateName, missionDirPath, sidecar
 
 	-- Attempt to load a sidecar file with menu names, weights, counts, etc
 	local sidecarFilePath = sidecarAbsolutePath_ or FMS.PATH(missionDirPath .. "\\" .. templateName .. ".lua")
-	local troopsLookup = {}
-	local sidecarChunk, error = loadfile(sidecarFilePath)
-	if sidecarChunk then
-		troopsLookup = sidecarChunk()
-		self:logINF("Found sidecar file: "..sidecarFilePath)
-	end
+	local troopsLookup = FMS.LoadfileWithResult(sidecarFilePath)
 
 	local templateFilePath = FMS.PATH(missionDirPath .. "\\" .. templateName .. ".stm")
 	FMS.RegisterSTMFile(templateFilePath,
 		function(vehicleGroup, category)
 			if category == Group.Category.GROUND then
 				local groupName = vehicleGroup.name
-				if restrictToOnlySidecar_ and (not troopsLookup[groupName]) then
+				if restrictToOnlySidecar_ and troopsLookup and (not troopsLookup[groupName]) then
 					self:logINF("Skipping group '"..groupName.."' not found in sidecar")
 				else
-					local sidecarTable = troopsLookup[groupName] or {}
+					local sidecarTable = {}
+					if troopsLookup then sidecarTable = troopsLookup[groupName] or {} end
 					local menuName   = sidecarTable.name or groupName
 					local unitCount  = sidecarTable.qty or sidecarTable.count or #(vehicleGroup.units)
 					local unitWeight = sidecarTable.wt or sidecarTable.weight or 80

@@ -13,19 +13,23 @@ Dependencies:
 if not FMS then FMS = {} end
 FMS.StaticTemplates = {}
 
+-------------------------------------------------------------------------------
+-- LOGGING
+-------------------------------------------------------------------------------
+
+FMS.StaticTemplates.INFO = false
 FMS.StaticTemplates.DEBUG = false
 FMS.StaticTemplates.TRACE = false
 
+local function _lg(msg) env.info("FMS.STM:"..msg) end
 local function _info(msg)
-	if FMS.StaticTemplates.DEBUG then
-		env.info(msg)
-	end
+	if FMS.StaticTemplates.INFO or FMS.StaticTemplates.DEBUG or FMS.StaticTemplates.TRACE then _lg(msg) end
 end
-
 local function _debug(msg)
-	if FMS.StaticTemplates.TRACE then
-		env.info(msg)
-	end
+	if FMS.StaticTemplates.DEBUG or FMS.StaticTemplates.TRACE then _lg(msg) end
+end
+local function _trace(msg)
+	if FMS.StaticTemplates.TRACE then _lg(msg) end
 end
 
 -------------------------------------------------------------------------------
@@ -33,11 +37,11 @@ end
 -------------------------------------------------------------------------------
 
 function FMS.RegisterSTM(templateName, missionDirPath, groupHandler_, staticHandler_)
-	_info("FMS.RegisterSTM(".. (templateName or ("nil")) ..")")
+	_info("RegisterSTM(".. (templateName or ("nil")) ..")")
 	
 	local stmTable = _G[templateName]
 	if stmTable then
-		env.info("Found global variable named "..templateName..". Registering template from memory.")
+		_debug("  - Found global variable named "..templateName..". Registering template from memory.")
 		-- Register the table in the global namespace named `templateName` into the MOOSE database
 		FMS.RegisterSTMTable(stmTable, groupHandler_, staticHandler_)
 	else
@@ -48,12 +52,12 @@ function FMS.RegisterSTM(templateName, missionDirPath, groupHandler_, staticHand
 end
 
 function FMS.SpawnSTM(templateName, missionDirPath)
-	_info("FMS.SpawnSTM(".. (templateName or ("nil")) ..")")
+	_info("SpawnSTM(".. (templateName or ("nil")) ..")")
 	
 	local stmTable = _G[templateName]
 	if stmTable then
-		env.info("  - Found global variable named "..templateName..". Spawning template from memory.")
-		-- Register the table in the global namespace named `templateName` into the MOOSE database
+		_debug("  - Found global variable named "..templateName..". Spawning template from memory.")
+		-- Spawn the table in the global namespace named `templateName` into the mission
 		FMS.SpawnSTMTable(stmTable)
 	else
 		local fullPath = ""
@@ -63,12 +67,12 @@ function FMS.SpawnSTM(templateName, missionDirPath)
 end
 
 function FMS.TraverseSTM(templateName, missionDirPath, groupHandler_, staticHandler_)
-	_info("FMS.TraverseSTM(".. (templateName or ("nil")) ..")")
+	_info("TraverseSTM(".. (templateName or ("nil")) ..")")
 	
 	local stmTable = _G[templateName]
 	if stmTable then
-		env.info("  - Found global variable named "..templateName..". Traversing template from memory.")
-		-- Register the table in the global namespace named `templateName` into the MOOSE database
+		_debug("  - Found global variable named "..templateName..". Traversing template from memory.")
+		-- Traverse the table in the global namespace named `templateName`
 		FMS._TraverseSTMTable(stmTable, groupHandler_, staticHandler_)
 	else
 		local fullPath = ""
@@ -102,7 +106,7 @@ end
 
 --- Spawns the contents of the STM file at the specified path
 function FMS.SpawnSTMFile( absolutePath )
-	_info("FMS.SpawnSTMFile <" .. absolutePath .. ">")
+	_info("SpawnSTMFile <" .. absolutePath .. ">")
 
 	FMS._UsingLoadedSTMFile(absolutePath, function()
 		FMS.SpawnSTMTable(staticTemplate)
@@ -115,7 +119,7 @@ end
 
 --- Registers the contents of the specified stmTable in the MOOSE database
 function FMS.RegisterSTMTable( stmTable, groupHandler_, staticHandler_ )
-	_info("FMS.RegisterSTMTable()")
+	_info("RegisterSTMTable()")
 
 	if (not stmTable) or (type(stmTable) ~= "table") then
 		env.error("Unable to register STM table.")
@@ -140,7 +144,7 @@ end
 
 --- Spawns the contents of the specified STM lua table.
 function FMS.SpawnSTMTable( stmTable )
-	_info("FMS.SpawnSTMTable()")
+	_info("SpawnSTMTable()")
 
 	if (not stmTable) or (type(stmTable) ~= "table") then
 		env.error("Unable to spawn STM table.")
@@ -286,7 +290,7 @@ FMS.StaticTemplates.UnitCategories = {
 -- @param #string absolutePath The full absolute file path to the STM file to be loaded.
 -- @param #function handler A function to be called after the static template file is loaded in the `staticTemplate` global variable.
 function FMS._UsingLoadedSTMFile( absolutePath, handler )
-	_info('FMS._UsingLoadedSTMFile("'..absolutePath..'")')
+	_info('_UsingLoadedSTMFile("'..absolutePath..'")')
 	assert(loadfile(absolutePath))()
 	if not staticTemplate then return end
 	

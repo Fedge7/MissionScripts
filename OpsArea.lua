@@ -66,17 +66,8 @@ function FMS.OpsArea:NewFromSTM( areaName, templateName, relPath_, zoneName_, sp
 	local groupNameLookupTable = nil
 	-- If relPath_ is nil, there's a good chance we're in a static environment and can't do any disk loads
 	if relPath_ then
-		do
-			local menuDictionaryPath = relPath_ .. "\\" .. templateName .. ".mnu"
-			if OA_PATH then menuDictionaryPath = OA_PATH(menuDictionaryPath) end
-			if pcall(function() assert(loadfile(menuDictionaryPath))() end) then
-				ao.log:log("Loading menu file: " .. menuDictionaryPath)
-				groupNameLookupTable = OA_TEMPLATE_DICTIONARY
-				OA_TEMPLATE_DICTIONARY = nil
-			else
-				ao.log:log("No menu file provided: " .. (menuDictionaryPath or "nil"), LOG.Level.DEBUG)
-			end
-		end
+		local sidecarFilePath = FMS.PATH(relPath_ .. "\\" .. templateName .. ".mnu")
+		groupNameLookupTable = FMS.LoadfileWithResult(sidecarFilePath)
 	end
 
 	-- We need to traverse the STM file first, to get the positions of all the units so that we can

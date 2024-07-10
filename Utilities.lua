@@ -37,6 +37,37 @@ function FMS.CallHandler(handler, ...)
 	end
 end
 
+function FMS.LoadfileWithResult(absolutePath, force)
+	local chunk, error = loadfile(absolutePath)
+	if chunk then
+		-- Create an empty table for a local lua environment, and run the chunk inside that scratch environment
+		local localenv = {}
+		setfenv(chunk, localenv)
+		env.info("FMS.LoadFileWithResult("..absolutePath..")")
+
+		-- Run the chunk
+		local result = chunk()
+
+		-- If the chunk didn't return a value, let's check if we can infer the return value.
+		-- We'll infer the presence of a single table in the localenv to be a value return value.
+		if not result then
+			local valueCount = 0
+			local singleTableValue = nil
+			for _,v in pairs(localenv) do
+				valueCount = valueCount + 1
+				if valueCount > 1 then break end
+				singleTableValue = v
+			end
+			if valueCount == 1 then result = singleTableValue end
+		end
+
+		return result
+	elseif force then
+		env.error("FMS.LoadFileWithResult ERROR: "..tostring(error or "nil"))
+		return nil
+	end
+end
+
 -----------------------------------------------------------------------------------------------------------------------
 --[[ MOOSE GROUP EXTENSIONS ]]-----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------------------------
