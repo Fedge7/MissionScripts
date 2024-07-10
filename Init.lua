@@ -11,6 +11,7 @@ FMS = {}
 FMS.MODULES = {
 	AirRange        = {name="AirRange",        path="FMS\\AirRange.lua"},
 	HeloOps         = {name="HeloOps",         path="FMS\\HeloOps.lua"},
+	HeloOpsConfig   = {name="HeloOpsConfig",   path="FMS\\HeloOpsConfig.lua"},
 	Log             = {name="Log",             path="FMS\\Log.lua"},
 	OpsArea         = {name="OpsArea",         path="FMS\\OpsArea.lua"},
 	OpsMission      = {name="OpsMission",      path="FMS\\OpsMission.lua"},
@@ -138,14 +139,6 @@ function FMS._init.CheckForMOOSE()
 	return MOOSE_DEVELOPMENT_FOLDER ~= nil
 end
 
-function FMS._init.AssertMOOSE()
-	if not FMS.CheckForMOOSE() then
-		FMS.error("Unable to find MOOSE. Be sure to load Moose.lua in a 'Do Script File' trigger.")
-		return false
-	end
-	return true
-end
-
 function FMS._init.ConfigureMOOSE()
 	FMS.info("FMS: Configuring MOOSE.", true)
 	_SETTINGS:SetPlayerMenuOff()
@@ -155,6 +148,8 @@ function FMS._init.ConfigureMOOSE()
 		BASE:TraceOn()
 	end
 end
+
+-- LOGGING --------------------------------------------------------------------
 
 function FMS.error(msg)   trigger.action.outText(msg, 60); env.error(msg)   end
 
