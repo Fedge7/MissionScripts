@@ -23,47 +23,41 @@ FMS._init = {
 		FMS.MODULES.Log,
 		FMS.MODULES.Utilities,
 		FMS.MODULES.StaticTemplates,
+	},
+	RequiredScripts = {
+		fedgelib        = {name="fedgelib",        path="FMS\\fedgelib\\fedgelib.lua"},
+		KeyMap          = {name="KeyMap",          path="FMS\\fedgelib\\KeyMap.lua"},
 	}
 }
 
-function FMS.INIT(missionDirectory, fmsDirectory)
+function FMS.INIT(missionDirectory, pathToFMS_, pathToMOOSE_)
 
 	if not missionDirectory then
-		FMS.error("Cannot initialize FMS without a `missionDirectory`. Halting initialization.")
-		return
+		FMS.error("Cannot initialize FMS without a `missionDirectory`. Aborting FMS Initialization.")
+		return false
 	end
 
 	FMS.MISSION_DIR = missionDirectory
 
 	FMS.info("Initializing Fedge Mission Scripts (FMS).")
 
+	local initialized = true
+
 	-- Attempt to load MOOSE, if not already loaded.
 	if FMS._init.CheckForMOOSE() then
-		env.info("FMS: MOOSE already loaded.")
+		FMS.info("FMS: MOOSE already loaded.", true)
 	else
-		function _loadMOOSE()
-			FMS.info("FMS: Loading MOOSE.")
-			FMS.LOAD("MOOSE_INCLUDE\\Moose_Include_Static\\Moose.lua") 
-		end
-		if not pcall(_loadMOOSE) then
-			FMS.error("FMS: Failed to dynamically load MOOSE. Aborting mission load.")
+		local moosepath = pathToMOOSE_ or "MOOSE_INCLUDE\\Moose_Include_Static\\Moose.lua"
+		FMS.info("FMS: Loading MOOSE from " .. moosepath)
+		if FMS.LOAD(moosepath) then
+			initialized = initialized and true
+		else
+			FMS.error("FMS: Failed to dynamically load MOOSE. Aborting FMS Initialization.")
 			return false
 		end
 	end
 
-	function _configureMOOSE()
-		env.info("FMS: Configuring MOOSE.")
-		_SETTINGS:SetPlayerMenuOff()
-		_SETTINGS:SetMGRS_Accuracy( 4 )
-		if false then -- debug logging
-			BASE:TraceAll(true)
-			BASE:TraceOn()
-		end
-	end
-	
-	_configureMOOSE()
-
-	local initialized = true
+	FMS._init.ConfigureMOOSE()
 
 	FMS.info("FMS: Loading Required FMS Modules.")
 	for _, mod in pairs(FMS._init.RequiredModules) do
@@ -72,6 +66,12 @@ function FMS.INIT(missionDirectory, fmsDirectory)
 			FMS.error("FMS: Failed to load module ["..mod.name.."] from path: "..mod.path)
 		end
 		initialized = initialized and moduleLoaded
+	end
+
+	FMS.info("FMS: Loading Required FMS Scripts.")
+	for _, mod in pairs(FMS._init.RequiredScripts) do
+		local status, result = FMS.LOAD(mod.path)
+		initialized = initialized and status
 	end
 	
 	local msg = "FMS: Fedge Mission Scripts Initialization "
@@ -123,8 +123,15 @@ end
 function FMS.LOAD(relativePath)
 	local filePath = FMS.PATH(relativePath)
 	env.info("FMS.LOAD<" .. filePath .. ">")
-	local status, result = assert(loadfile(filePath))()
-	return status, result
+
+	local f, error = loadfile(filePath)
+	if f then
+		f()
+		return true
+	else
+		env.error("FMS.LOAD ERROR -- " .. tostring(error))
+		return false
+	end
 end
 
 function FMS._init.CheckForMOOSE()
@@ -137,6 +144,16 @@ function FMS._init.AssertMOOSE()
 		return false
 	end
 	return true
+end
+
+function FMS._init.ConfigureMOOSE()
+	FMS.info("FMS: Configuring MOOSE.", true)
+	_SETTINGS:SetPlayerMenuOff()
+	_SETTINGS:SetMGRS_Accuracy( 4 )
+	if false then -- debug logging
+		BASE:TraceAll(true)
+		BASE:TraceOn()
+	end
 end
 
 function FMS.error(msg)   trigger.action.outText(msg, 60); env.error(msg)   end
