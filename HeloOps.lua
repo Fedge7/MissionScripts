@@ -7,18 +7,18 @@ Description:
 
 Modifications:
 	- v0.1    Fedge            Port of Fedge's original script.
-	- v0.2    Fedge            Preparation for OneActual's use.
-	- v0.3    Fedge            Tweaked as per feedback from TFAA. Added FARP building functionality to CTLD.
+	- v0.3    Fedge            Added FARP building functionality to CTLD.
 	- v0.4    Fedge            Added more robust error handling and reporting.
 	- v0.5    Fedge            Logging utilities. Separates FARP configuration out of this file.
 	- v0.6    Fedge            Adds support for loading standard troops/vehicles via STM file.
 	- v0.7    Fedge            Adds support for CTLD:onTroopsDeployed() function for easier callbacks
+	- v1.0    Fedge            Cleanup.
 
 TODO:
 	- CSAR random missions
 ]]
 
-local version = "v0.7"
+local version = "v1.0"
 local logPrefix = "FMS.HeloOps"
 
 env.info("FMS.HeloOps " .. version .. " loading.")
@@ -178,25 +178,6 @@ function CTLD:ScanForZones()
 
 end
 
-function CTLD:registerSTMTroops( absolutePath, weight, submenu_ )
-	FMS.RegisterSTMFile(absolutePath,
-		function(vehicleGroup, category)
-			if category == Group.Category.GROUND then
-				self:AddTroopGroups(vehicleGroup.name, {vehicleGroup.name}, #(vehicleGroup.units), weight, submenu_)
-			end
-		end)
-end
-
-function CTLD:registerSTMVehicles( absolutePath, weight )
-	FMS.RegisterSTMFile(absolutePath,
-		function(vehicleGroup, category)
-			if category == Group.Category.GROUND then
-				self:AddVehicleGroups(vehicleGroup.name, {vehicleGroup.name}, #(vehicleGroup.units), weight, submenu_)
-			end
-		end
-	)
-end
-
 FMS.HeloOps.FARP = {
 	-- An array of FARP names
 	Clearnames = {
@@ -353,8 +334,6 @@ function CTLD:ConfigureFARP(
 
 end
 
-
-
 -- PRIVATE INTERFACE -----------------------------------------------------------
 
 function CTLD:_CTLDAddStaticsCargo(groupTemplateName, massKg)
@@ -382,8 +361,6 @@ function CTLD:ConfigureJTACs()
 		end
 	end
 end
-
-
 
 
 -- -----------------------------------------------------------------------------
@@ -434,16 +411,6 @@ function FMS.HeloOps.NewCSAR(coalitionSide_, alias_, prefixes_, downedPilotGroup
 	_csar_instance:__Start(4)
 		
 	return _csar_instance
-end
-
-function CSAR:applyDefaultConfiguration()
-	self.csarOncrash = true                -- If set to true, will generate a downed pilot when a plane crashes as well.
-	self.enableForAI = true
-	self.allowDownedPilotCAcontrol = true
-	self.coordtype = 2
-	self.useprefix = false
-	
-	self:logINF("Default Configuration applied.")
 end
 
 FMS.HeloOps.randomNames = {
