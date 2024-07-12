@@ -137,7 +137,12 @@ function FMS.OpsArea:NewFromSTM( areaName, templateName, relPath_, zoneName_, sp
 		end,
 		function(staticGroupTable)
 			local unitTable = staticGroupTable.units[1]
-			ao:registerStaticByName(unitTable.name)
+			if unitTable.type == "big_smoke" then
+				ao.log:log("Registering smoke effect named " .. unitTable.name, LOG.Level.DEBUG)
+				table.insert(ao._smokeEffects, unitTable)
+			else
+				ao:registerStaticByName(unitTable.name)
+			end
 		end
 	)
 
@@ -217,6 +222,9 @@ function FMS.OpsArea:_init(areaName)
 
 	--- List of names of static units that can be spawned into this OpsArea
 	self._staticNames = {}
+	
+	--- List of smoke effect unit tables
+	self._smokeEffects = {}
 
 	--- The Core.Zone#ZONE object associated with this OpsArea
 	-- Will be set later in _initZone(...)
@@ -533,7 +541,7 @@ end
 --- Spawns all groups and all statics in their original locations.
 -- Does *not* check to see a group is currently alive so it is possible to end up with duplicate/overlapping groups.
 function FMS.OpsArea:spawnAll()
-	self.log:log("Spawning all groups in " .. self.name, LOG.Level.TRACE)
+	self.log:log("Spawning all groups in " .. self.name, LOG.Level.INFO)
 
 	local spawnedGroups = {}
 	
@@ -544,7 +552,14 @@ function FMS.OpsArea:spawnAll()
 	end
 	
 	for _,staticName in ipairs(self._staticNames) do
+		self.log:log("Spawning static " .. staticName, LOG.Level.DEBUG)
 		SPAWNSTATIC:NewFromStatic(staticName):Spawn()
+	end
+
+	for _,smoke in ipairs(self._smokeEffects) do
+		self.log:log("Spawning smoke at " .. smoke.x .. ", " .. smoke.y, LOG.Level.DEBUG)
+		COORDINATE:NewFromVec2({x=smoke.x, y=smoke.y})
+			:BigSmokeAndFire(smoke.effectPreset, smoke.effectTransparency, smoke.name)
 	end
 
 	self:showMapMarker()
@@ -556,7 +571,7 @@ end
 --- Spawns all groups in a random location within the main zone.
 -- Does *not* spawn any statics.
 function FMS.OpsArea:spawnAllRandomly()
-	self.log:log("Spawning all groups RANDOMLY in " .. self.name, LOG.Level.DEBUG)
+	self.log:log("Spawning all groups RANDOMLY in " .. self.name, LOG.Level.INFO)
 	for groupName, spawner in pairs(self._spawners) do
 		self:spawnInZone(spawner, self.zone)
 	end
@@ -568,7 +583,7 @@ end
 
 --- Respawns any groups that are no longer alive in their original locations, as defined in the template.
 function FMS.OpsArea:respawnAll()
-	self.log:log("Respawning all dead groups in " .. self.name, LOG.Level.DEBUG)
+	self.log:log("Respawning all dead groups in " .. self.name, LOG.Level.INFO)
 	for groupName, spawner in pairs(self._spawners) do
 		if spawner:HasAliveGroups() then
 			self.log:log("Skipping respawn for alive group " .. groupName)
