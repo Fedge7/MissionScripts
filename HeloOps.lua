@@ -125,16 +125,29 @@ end
 --- Adds a vehicle group template (or multiple templates) to the "Crates" menu
 function CTLD:AddVehicleGroups(menuName, groupTemplateNames, crateCount, perCrateMassKg)
 
-	-- Check that all the group templates exist
-	for k,v in pairs(groupTemplateNames) do
-		if not GROUP:FindByName(v) then
-			self:logWAR("Unable to add cargo '" .. menuName .. "' (" .. v .. ")")
-			FMS.HeloOps.Error.MissingVehicles = FMS.HeloOps.Error.MissingVehicles + 1
-			return
+	local function groupExists(grpName)
+		if GROUP:FindByName(grpName) then return true
+		else
+			self:logWAR("Unable to add troops '" .. menuName .. "' (" .. grpName .. ")")
+			FMS.HeloOps.Error.MissingTroops = FMS.HeloOps.Error.MissingVehicles + 1
+			return false
 		end
 	end
+
+	local groupNames = {}
+
+	-- Check that all the group template(s) exist
+	if type(groupTemplateNames) == 'table' then
+		for _, grpName in pairs(groupTemplateNames) do
+			if not groupExists(grpName) then return end
+		end
+		groupNames = groupTemplateNames
+	elseif type(groupTemplateNames) == 'string' then
+		if not groupExists(groupTemplateNames) then return end
+		groupNames = {groupTemplateNames}
+	end
 	
-	self:AddCratesCargo(menuName, groupTemplateNames, CTLD_CARGO.Enum.VEHICLE, crateCount, perCrateMassKg)  
+	self:AddCratesCargo(menuName, groupNames, CTLD_CARGO.Enum.VEHICLE, crateCount, perCrateMassKg)  
 	self:logINF("Added crates/cargo '" .. menuName .. "'")
 end
 
