@@ -38,7 +38,7 @@ FMS.HeloOps = {
 	-- Utility logging functions. Call `FMS.HeloOps.Log.info/warning/error`
 	Log = {
 		logenv =  function(msg, pri, category)
-			local _msg = "FMS.HeloOps"
+			local _msg = logPrefix
 			if category ~= nil then _msg = _msg .. "|" .. category end
 			_msg = _msg .. ": " .. msg
 			if     0==pri then env.info(_msg)
@@ -499,5 +499,33 @@ function CSAR:handleHotLZ(csarGroup, groupTemplateName)
 		kabukiZone:TriggerStop()
 		clients:FilterStop()
 		clients = nil
+	end
+end
+
+function FMS.HeloOps.RunBuiltInTest()
+	local errorFuse = false
+	if FMS.HeloOps.Error.MissingTroops > 0 then
+		errorFuse = true
+		MESSAGE:New("Missing " .. FMS.HeloOps.Error.MissingTroops .. " troop group templates", 20, "HeloOps|CTLD"):ToAll()
+	end
+	if FMS.HeloOps.Error.MissingVehicles > 0 then
+		errorFuse = true
+		MESSAGE:New("Missing " .. FMS.HeloOps.Error.MissingVehicles .. " vehicle group templates", 20, "HeloOps|CTLD"):ToAll()
+	end
+	if FMS.HeloOps.Error.MissingCrates > 0 then
+		errorFuse = true
+		MESSAGE:New("Missing " .. FMS.HeloOps.Error.MissingCrates .. " crate static templates", 20, "HeloOps|CTLD"):ToAll()
+	end
+	if FMS.HeloOps.Error.MissingFARP > 0 then
+		errorFuse = true
+		MESSAGE:New("Missing " .. FMS.HeloOps.Error.MissingFARP .. " FARP templates", 20, "HeloOps|CTLD"):ToAll()
+	end
+
+	if errorFuse then
+		env.error("FMS HeloOps CTLD initialization: FAILURE")
+	else
+		local msg = "FMS HeloOps CTLD initialization: SUCCESS"
+		env.info(msg)
+		MESSAGE:New(msg):ToAll()
 	end
 end
