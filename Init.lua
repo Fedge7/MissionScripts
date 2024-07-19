@@ -6,7 +6,7 @@ Description:
 	Initializes the required scripts and globals for using FMS.
 ]]
 
-FMS = {}
+FMS = {MOOSE_DEBUG = false}
 
 FMS.MODULES = {
 	AirRange        = {name="AirRange",        path="FMS\\AirRange.lua"},
@@ -192,7 +192,7 @@ function FMS._init.ConfigureMOOSE()
 	FMS.info("FMS: Configuring MOOSE.", true)
 	_SETTINGS:SetPlayerMenuOff()
 	_SETTINGS:SetMGRS_Accuracy( 4 )
-	if false then -- debug logging
+	if MOOSE_DEBUG then -- debug logging
 		BASE:TraceAll(true)
 		BASE:TraceOn()
 	end

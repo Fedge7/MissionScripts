@@ -49,7 +49,7 @@ function FMS.LoadfileWithResult(absolutePath, force)
 		local result = chunk()
 
 		-- If the chunk didn't return a value, let's check if we can infer the return value.
-		-- We'll infer the presence of a single table in the localenv to be a value return value.
+		-- We'll infer the presence of a single table in the localenv to be a valid return value.
 		if not result then
 			local valueCount = 0
 			local singleTableValue = nil
