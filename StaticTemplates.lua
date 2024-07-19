@@ -16,21 +16,14 @@ FMS.StaticTemplates = {}
 -------------------------------------------------------------------------------
 -- LOGGING
 -------------------------------------------------------------------------------
-
-FMS.StaticTemplates.INFO = false
-FMS.StaticTemplates.DEBUG = false
-FMS.StaticTemplates.TRACE = false
-
-local function _lg(msg) env.info("FMS.STM:"..msg) end
-local function _info(msg)
-	if FMS.StaticTemplates.INFO or FMS.StaticTemplates.DEBUG or FMS.StaticTemplates.TRACE then _lg(msg) end
+FMS.StaticTemplates.LOG_LEVEL = {ERROR=1, WARNING=2, INFO=3, DEBUG=4, TRACE=5}
+FMS.StaticTemplates.THRESHOLD = FMS.StaticTemplates.LOG_LEVEL.TRACE
+local function _lg(msg, level)
+	if (level or FMS.StaticTemplates.LOG_LEVEL.INFO) <= FMS.StaticTemplates.THRESHOLD then env.info("FMS.STM:"..msg) end
 end
-local function _debug(msg)
-	if FMS.StaticTemplates.DEBUG or FMS.StaticTemplates.TRACE then _lg(msg) end
-end
-local function _trace(msg)
-	if FMS.StaticTemplates.TRACE then _lg(msg) end
-end
+local function _info(msg)  _lg(msg, FMS.StaticTemplates.LOG_LEVEL.INFO) end
+local function _debug(msg) _lg(msg, FMS.StaticTemplates.LOG_LEVEL.DEBUG) end
+local function _trace(msg) _lg(msg, FMS.StaticTemplates.LOG_LEVEL.TRACE) end
 
 -------------------------------------------------------------------------------
 -- UNIVERSAL FUNCTIONS
@@ -119,7 +112,7 @@ end
 
 --- Registers the contents of the specified stmTable in the MOOSE database
 function FMS.RegisterSTMTable( stmTable, groupHandler_, staticHandler_ )
-	_info("RegisterSTMTable()")
+	_debug("RegisterSTMTable()")
 
 	if (not stmTable) or (type(stmTable) ~= "table") then
 		env.error("Unable to register STM table.")
@@ -129,7 +122,49 @@ function FMS.RegisterSTMTable( stmTable, groupHandler_, staticHandler_ )
 	FMS._TraverseSTMTable(stmTable,
 		function(vehicleGroupTable, category, coalitionId, countryId)
 			-- TODO: Do we need to reset the groupId or unitId here?
-			GROUP:NewTemplate(vehicleGroupTable, coalitionId, category, countryId)
+
+			-- NOTE: NewTemplate() doesn't actually produce a useable DCS Group object.
+			--       It only makes a MOOSE GROUP object. For the purposes of spawning in groups,
+			--       or doing anything that requires access to the group's units, we need to call
+			--       _DATABASE:Spawn() so that the group is actually realized within the DCS runtime.
+			-- GROUP:NewTemplate(vehicleGroupTable, coalitionId, category, countryId)
+			
+			-- The DATABASE:Spawn() method requires the group table to have the following 2 properties defined
+			vehicleGroupTable.CountryID = countryId
+			vehicleGroupTable.CategoryID = category
+
+			local grp = _DATABASE:Spawn(vehicleGroupTable)
+			_trace("_DATABASE:Spawn() '"..grp:GetName().."'  [id_ = "..grp:GetDCSObject()["id_"].."]")
+			if groupHandler_ then groupHandler_(vehicleGroupTable, category, coalitionId, countryId) end
+		end,
+
+		function(staticGroupTable, coalitionId, countryId)
+			-- We have to set a new unitId here because the id in the STM file may collide with with ids present in the actual mission/miz file
+			staticGroupTable.units[1].unitId = FMS.GetUniqueStaticID()
+			_DATABASE:_RegisterStaticTemplate(staticGroupTable, coalitionId, category, countryId)
+			if staticHandler_ then staticHandler_(staticGroupTable, coalitionId, countryId) end
+		end
+	)
+end
+
+--- Registers the contents of the specified stmTable in the MOOSE database
+function FMS.RegisterSTMTableLateActivated( stmTable, groupHandler_, staticHandler_ )
+	_debug("RegisterSTMTableLateActivated()")
+
+	if (not stmTable) or (type(stmTable) ~= "table") then
+		env.error("Unable to register STM table.")
+		return
+	end
+
+	FMS._TraverseSTMTable(stmTable,
+		function(vehicleGroupTable, category, coalitionId, countryId)
+			vehicleGroupTable.lateActivated = true
+			-- The DATABASE:Spawn() method requires the group table to have the following 2 properties defined
+			vehicleGroupTable.CountryID = countryId
+			vehicleGroupTable.CategoryID = category
+
+			local grp = _DATABASE:Spawn(vehicleGroupTable)
+			_trace("_DATABASE:Spawn() '"..grp:GetName().."'  [id_ = "..grp:GetDCSObject()["id_"].."]")
 			if groupHandler_ then groupHandler_(vehicleGroupTable, category, coalitionId, countryId) end
 		end,
 
@@ -290,7 +325,7 @@ FMS.StaticTemplates.UnitCategories = {
 -- @param #string absolutePath The full absolute file path to the STM file to be loaded.
 -- @param #function handler A function to be called after the static template file is loaded in the `staticTemplate` global variable.
 function FMS._UsingLoadedSTMFile( absolutePath, handler )
-	_info('_UsingLoadedSTMFile("'..absolutePath..'")')
+	_debug('_UsingLoadedSTMFile("'..absolutePath..'")')
 	assert(loadfile(absolutePath))()
 	if not staticTemplate then return end
 	
