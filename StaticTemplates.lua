@@ -17,7 +17,7 @@ FMS.StaticTemplates = {}
 -- LOGGING
 -------------------------------------------------------------------------------
 FMS.StaticTemplates.LOG_LEVEL = {ERROR=1, WARNING=2, INFO=3, DEBUG=4, TRACE=5}
-FMS.StaticTemplates.THRESHOLD = FMS.StaticTemplates.LOG_LEVEL.TRACE
+FMS.StaticTemplates.THRESHOLD = FMS.StaticTemplates.LOG_LEVEL.INFO
 local function _lg(msg, level)
 	if (level or FMS.StaticTemplates.LOG_LEVEL.INFO) <= FMS.StaticTemplates.THRESHOLD then env.info("FMS.STM:"..msg) end
 end

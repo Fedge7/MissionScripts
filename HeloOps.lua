@@ -340,8 +340,15 @@ function CTLD:ConfigureFARP(
 		-- Handle FARPs/FOBs
 		if string.find(name, FARPTemplateGroupName or "FARP", 1, true) then
 			local coord = Vehicle:GetCoordinate()
-			Vehicle:Destroy(false) -- Remove the group that was "built" from the crate(s)      
-			BuildAFARP(coord) 
+			Vehicle:Destroy(false) -- Remove the group that was "built" from the crate(s)
+
+			-- TODO: Disable custom FARP spawning as a hotfix for DCS FARP Warehouse/Storage changes
+			-- BuildAFARP(coord)
+
+			UTILS.SpawnFARPAndFunctionalStatics(FarpPadStaticName, coord, ENUMS.FARPType.INVISIBLE)
+			self:logINF("Spawning FARP and Functional Statics. name: '" .. FarpPadStaticName .. "'")
+			
+			-- TODO: Do we need to make a loadzone?
 		end
 	end
 
