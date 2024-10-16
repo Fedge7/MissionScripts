@@ -118,8 +118,7 @@ function FMS.OpsArea:NewFromSTM( areaName, templateName, relPath_, zoneName_, sp
 		ao:scanForSpawnzones(spawnZonePrefix_)
 	end
 
-	FMS.RegisterSTM(templateName, relPath_,
-		function(groupTable, category)
+	local groupHandler = function(groupTable, category)
 			-- Check for a menu entry in the dictionary, and check if we should allow spawning
 			local menuName = nil
 			if groupNameLookupTable then
@@ -134,8 +133,9 @@ function FMS.OpsArea:NewFromSTM( areaName, templateName, relPath_, zoneName_, sp
 
 			-- Have to pass `force=true` here because GetVec3() is failing on the group
 			ao:registerGroupTemplate(groupTable.name, menuName, true)
-		end,
-		function(staticGroupTable)
+		end
+
+	local staticHandler = function(staticGroupTable)
 			local unitTable = staticGroupTable.units[1]
 			if unitTable.type == "big_smoke" then
 				ao.log:log("Registering smoke effect named " .. unitTable.name, LOG.Level.DEBUG)
@@ -144,7 +144,8 @@ function FMS.OpsArea:NewFromSTM( areaName, templateName, relPath_, zoneName_, sp
 				ao:registerStaticByName(unitTable.name)
 			end
 		end
-	)
+
+	FMS.RegisterSTM(templateName, relPath_, groupHandler, staticHandler, true)
 
 	ao.log:log("Registered "..ao._groupsCount.." group templates.")
 	return ao

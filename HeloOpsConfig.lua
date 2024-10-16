@@ -94,7 +94,8 @@ function CTLD:_AddGroupsFromSTM( isCrated, templateName, missionDirPath, sidecar
 					end
 				end
 			end
-		end
+		end,
+		nil, true
 	)
 end
 
@@ -120,7 +121,9 @@ function CTLD:registerSTMFARP( stmTable, oa_path, FARPTemplateGroupName_ )
 			else
 				table.insert(staticNames, unitTable.name)
 			end
-		end
+		end,
+
+		true
 	)
 
 	self:AddFARPCrates("FARP", _FARPTemplateGroupName, 2, 1500)

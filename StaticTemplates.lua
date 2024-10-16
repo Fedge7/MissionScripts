@@ -29,18 +29,18 @@ local function _trace(msg) _lg(msg, FMS.StaticTemplates.LOG_LEVEL.TRACE) end
 -- UNIVERSAL FUNCTIONS
 -------------------------------------------------------------------------------
 
-function FMS.RegisterSTM(templateName, missionDirPath, groupHandler_, staticHandler_)
-	_info("RegisterSTM(".. (templateName or ("nil")) ..")")
-	
+function FMS.RegisterSTM(templateName, missionDirPath, groupHandler_, staticHandler_, lateActivation_)
+	_info("RegisterSTM(".. (templateName or ("nil")) ..", lateActivation_=" .. dump(lateActivation_) ..")")
+
 	local stmTable = _G[templateName]
 	if stmTable then
 		_debug("  - Found global variable named "..templateName..". Registering template from memory.")
 		-- Register the table in the global namespace named `templateName` into the MOOSE database
-		FMS.RegisterSTMTable(stmTable, groupHandler_, staticHandler_)
+		FMS.RegisterSTMTable(stmTable, groupHandler_, staticHandler_, lateActivation_)
 	else
 		local fullPath = ""
 		if missionDirPath then fullPath = missionDirPath .. "\\" end
-		FMS.RegisterSTMFile(FMS.PATH(fullPath .. templateName .. ".stm"), groupHandler_, staticHandler_)
+		FMS.RegisterSTMFile(FMS.PATH(fullPath .. templateName .. ".stm"), groupHandler_, staticHandler_, lateActivation_)
 	end
 end
 
@@ -91,9 +91,9 @@ end
 --         1. the lua table defining the static, as defined in the static template
 --         2. the static's coalition ID
 --         3. the static's country ID
-function FMS.RegisterSTMFile( absolutePath, groupHandler_, staticHandler_ )
+function FMS.RegisterSTMFile( absolutePath, groupHandler_, staticHandler_, lateActivation_ )
 	FMS._UsingLoadedSTMFile(absolutePath, function()
-		FMS.RegisterSTMTable(staticTemplate, groupHandler_, staticHandler_)
+		FMS.RegisterSTMTable(staticTemplate, groupHandler_, staticHandler_, lateActivation_)
 	end)
 end
 
@@ -111,8 +111,8 @@ end
 -------------------------------------------------------------------------------
 
 --- Registers the contents of the specified stmTable in the MOOSE database
-function FMS.RegisterSTMTable( stmTable, groupHandler_, staticHandler_ )
-	_debug("RegisterSTMTable()")
+function FMS.RegisterSTMTable( stmTable, groupHandler_, staticHandler_, lateActivation_ )
+	_debug("RegisterSTMTable(lateActivation_="..tostring(lateActivation_)..")")
 
 	if (not stmTable) or (type(stmTable) ~= "table") then
 		env.error("Unable to register STM table.")
@@ -133,39 +133,12 @@ function FMS.RegisterSTMTable( stmTable, groupHandler_, staticHandler_ )
 			vehicleGroupTable.CountryID = countryId
 			vehicleGroupTable.CategoryID = category
 
-			-- We'll set lateActivation to true here, just in case the template itself "forgot" to set it.
-			-- This inherently assumes the user doesn't want to immediately spawn the template.
-			vehicleGroupTable.lateActivation = true
-
-			local grp = _DATABASE:Spawn(vehicleGroupTable)
-			_trace("_DATABASE:Spawn() '"..grp:GetName().."'  [id_ = "..grp:GetDCSObject()["id_"].."]")
-			if groupHandler_ then groupHandler_(vehicleGroupTable, category, coalitionId, countryId) end
-		end,
-
-		function(staticGroupTable, coalitionId, countryId)
-			-- We have to set a new unitId here because the id in the STM file may collide with with ids present in the actual mission/miz file
-			staticGroupTable.units[1].unitId = FMS.GetUniqueStaticID()
-			_DATABASE:_RegisterStaticTemplate(staticGroupTable, coalitionId, category, countryId)
-			if staticHandler_ then staticHandler_(staticGroupTable, coalitionId, countryId) end
-		end
-	)
-end
-
---- Registers the contents of the specified stmTable in the MOOSE database
-function FMS.RegisterSTMTableLateActivated( stmTable, groupHandler_, staticHandler_ )
-	_debug("RegisterSTMTableLateActivated()")
-
-	if (not stmTable) or (type(stmTable) ~= "table") then
-		env.error("Unable to register STM table.")
-		return
-	end
-
-	FMS._TraverseSTMTable(stmTable,
-		function(vehicleGroupTable, category, coalitionId, countryId)
-			vehicleGroupTable.lateActivated = true
-			-- The DATABASE:Spawn() method requires the group table to have the following 2 properties defined
-			vehicleGroupTable.CountryID = countryId
-			vehicleGroupTable.CategoryID = category
+			if lateActivation_ ~= nil then
+				-- Setting `.lateActivation` to false will immediately spawn the group in upon the _DATABASE:Spawn() call.
+				-- A value of true will set the unit as late activated, as if the checkbox was checked in the ME.
+				vehicleGroupTable.lateActivation = lateActivation_
+				_trace("RegisterSTMTable() -- setting lateActivation to " .. tostring(lateActivation_))
+			end
 
 			local grp = _DATABASE:Spawn(vehicleGroupTable)
 			_trace("_DATABASE:Spawn() '"..grp:GetName().."'  [id_ = "..grp:GetDCSObject()["id_"].."]")
