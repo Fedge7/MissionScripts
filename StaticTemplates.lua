@@ -133,6 +133,10 @@ function FMS.RegisterSTMTable( stmTable, groupHandler_, staticHandler_ )
 			vehicleGroupTable.CountryID = countryId
 			vehicleGroupTable.CategoryID = category
 
+			-- We'll set lateActivation to true here, just in case the template itself "forgot" to set it.
+			-- This inherently assumes the user doesn't want to immediately spawn the template.
+			vehicleGroupTable.lateActivation = true
+
 			local grp = _DATABASE:Spawn(vehicleGroupTable)
 			_trace("_DATABASE:Spawn() '"..grp:GetName().."'  [id_ = "..grp:GetDCSObject()["id_"].."]")
 			if groupHandler_ then groupHandler_(vehicleGroupTable, category, coalitionId, countryId) end
