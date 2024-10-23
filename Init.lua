@@ -31,7 +31,7 @@ FMS._init = {
 	}
 }
 
-function FMS.INIT(missionDirectory, pathToFMS_, pathToMOOSE_)
+function FMS.INIT(missionDirectory, pathToMOOSE_)
 
 	if not missionDirectory then
 		FMS.error("Cannot initialize FMS without a `missionDirectory`. Aborting FMS Initialization.")
