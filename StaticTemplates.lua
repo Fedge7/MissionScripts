@@ -44,18 +44,18 @@ function FMS.RegisterSTM(templateName, missionDirPath, groupHandler_, staticHand
 	end
 end
 
-function FMS.SpawnSTM(templateName, missionDirPath)
+function FMS.SpawnSTM(templateName, missionDirPath, spawnedHandler_)
 	_info("SpawnSTM(".. (templateName or ("nil")) ..")")
 	
 	local stmTable = _G[templateName]
 	if stmTable then
 		_debug("  - Found global variable named "..templateName..". Spawning template from memory.")
 		-- Spawn the table in the global namespace named `templateName` into the mission
-		FMS.SpawnSTMTable(stmTable)
+		FMS.SpawnSTMTable(stmTable, spawnedHandler_)
 	else
 		local fullPath = ""
 		if missionDirPath then fullPath = missionDirPath .. "\\" end
-		FMS.SpawnSTMFile(FMS.PATH(fullPath .. templateName .. ".stm"))
+		FMS.SpawnSTMFile(FMS.PATH(fullPath .. templateName .. ".stm"), spawnedHandler_)
 	end
 end
 
@@ -92,18 +92,15 @@ end
 --         2. the static's coalition ID
 --         3. the static's country ID
 function FMS.RegisterSTMFile( absolutePath, groupHandler_, staticHandler_, lateActivation_ )
-	FMS._UsingLoadedSTMFile(absolutePath, function()
-		FMS.RegisterSTMTable(staticTemplate, groupHandler_, staticHandler_, lateActivation_)
-	end)
+	_info("RegisterSTMFile <" .. absolutePath .. ">")
+	local stmTable = FMS.LoadFileWithResult(absolutePath)
+	FMS.RegisterSTMTable(stmTable, groupHandler_, staticHandler_, lateActivation_)
 end
 
 --- Spawns the contents of the STM file at the specified path
-function FMS.SpawnSTMFile( absolutePath )
-	_info("SpawnSTMFile <" .. absolutePath .. ">")
-
-	FMS._UsingLoadedSTMFile(absolutePath, function()
-		FMS.SpawnSTMTable(staticTemplate)
-	end)
+function FMS.SpawnSTMFile( absolutePath, spawnedHandler_ )
+	_info("SpawnSTMFile  <" .. absolutePath .. ">")
+	FMS.SpawnSTMTable(FMS.LoadFileWithResult(absolutePath), spawnedHandler_)
 end
 
 -------------------------------------------------------------------------------
@@ -142,20 +139,21 @@ function FMS.RegisterSTMTable( stmTable, groupHandler_, staticHandler_, lateActi
 
 			local grp = _DATABASE:Spawn(vehicleGroupTable)
 			_trace("_DATABASE:Spawn() '"..grp:GetName().."'  [id_ = "..grp:GetDCSObject()["id_"].."]")
-			if groupHandler_ then groupHandler_(vehicleGroupTable, category, coalitionId, countryId) end
+			FMS.CallHandler(groupHandler_, vehicleGroupTable, category, coalitionId, countryId)
 		end,
 
 		function(staticGroupTable, coalitionId, countryId)
 			-- We have to set a new unitId here because the id in the STM file may collide with with ids present in the actual mission/miz file
 			staticGroupTable.units[1].unitId = FMS.GetUniqueStaticID()
 			_DATABASE:_RegisterStaticTemplate(staticGroupTable, coalitionId, category, countryId)
-			if staticHandler_ then staticHandler_(staticGroupTable, coalitionId, countryId) end
+			_debug("_DATABASE:_RegisterStaticTemplate() name=" .. tostring(staticGroupTable.name))
+			FMS.CallHandler(staticHandler_, staticGroupTable, coalitionId, countryId)
 		end
 	)
 end
 
 --- Spawns the contents of the specified STM lua table.
-function FMS.SpawnSTMTable( stmTable )
+function FMS.SpawnSTMTable( stmTable, spawnedHandler_ )
 	_info("SpawnSTMTable()")
 
 	if (not stmTable) or (type(stmTable) ~= "table") then
@@ -167,18 +165,27 @@ function FMS.SpawnSTMTable( stmTable )
 		function(vehicleGroupTable, category, coalitionId, countryId)
 			-- _DATABASE:_RegisterGroupTemplate(vehicleGroupTable, coalitionId, category, countryId)
 			GROUP:NewTemplate(vehicleGroupTable, coalitionId, category, countryId)
-			SPAWN:New(vehicleGroupTable.name):Spawn()
+			local spawned = SPAWN:New(vehicleGroupTable.name):Spawn()
+			FMS.CallHandler(spawnedHandler_, spawned)
 		end,
 
 		function(staticGroupTable, coalitionId, countryId)
-			local unitTable = staticGroupTable.units[1]
-
-			-- We have to set a new unitId here because the id in the STM file may collide with with ids present in the actual mission/miz file
-			unitTable.unitId = FMS.GetUniqueStaticID()
-			local spwn = SPAWNSTATIC:NewFromTemplate(unitTable)
-			spwn:Spawn()
+			local spawned = FMS.StaticTemplates._SpawnStatic(staticGroupTable, coalitionId, countryId)
+			FMS.CallHandler(spawnedHandler_, spawned)
 		end
 	)
+end
+
+function FMS.StaticTemplates._SpawnStatic(staticGroupTable, coalitionId, countryId, newName_)
+	_trace("FMS.StaticTemplates._SpawnStatic()")
+	local unitTable = staticGroupTable.units[1]
+
+	-- We have to set a new unitId here because the id in the STM file may collide with with ids present in the actual mission/miz file
+	unitTable.unitId = FMS.GetUniqueStaticID()
+	local spwn = SPAWNSTATIC:NewFromTemplate(unitTable, countryId)
+	local spawnedStatic = spwn:Spawn(nil, newName_)
+	_trace("Spawned STATIC: " .. tostring(spawnedStatic:GetName()))
+	return spawnedStatic
 end
 
 -------------------------------------------------------------------------------
@@ -211,9 +218,9 @@ end
 
 --- Traverses the STM file at the specified path.
 function FMS._TraverseSTMFile( absolutePath, groupHandler_, staticHandler_ )
-	FMS._UsingLoadedSTMFile(absolutePath, function()
-		FMS._TraverseSTMTable(staticTemplate, groupHandler_, staticHandler_)
-	end)
+	_info("_TraverseSTMFile <" .. absolutePath .. ">")
+	local stmTable = FMS.LoadFileWithResult(absolutePath, true)
+	FMS._TraverseSTMTable(stmTable, groupHandler_, staticHandler_)
 end
 
 --- Traverses the specified STM lua table
@@ -301,6 +308,7 @@ FMS.StaticTemplates.UnitCategories = {
 --- Loads a static template file (.stm), calls the specified handler, and finally sets the global `staticTemplate` variable to nil.
 -- @param #string absolutePath The full absolute file path to the STM file to be loaded.
 -- @param #function handler A function to be called after the static template file is loaded in the `staticTemplate` global variable.
+-- @note This function has been deprecated in favor of FMS.LoadFileWithResult()
 function FMS._UsingLoadedSTMFile( absolutePath, handler )
 	_debug('_UsingLoadedSTMFile("'..absolutePath..'")')
 	assert(loadfile(absolutePath))()

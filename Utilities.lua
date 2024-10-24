@@ -28,7 +28,7 @@ function FMS.RemoveBlockerStatics(coalition_)
 end
 
 function FMS.CallHandler(handler, ...)
-	if handler then
+	if handler and type(handler) == "function" then
 		local f = function() handler( unpack(arg) ) end
 		local status, result = pcall(f)
 		if not status then
@@ -37,7 +37,7 @@ function FMS.CallHandler(handler, ...)
 	end
 end
 
-function FMS.LoadfileWithResult(absolutePath, force)
+function FMS.LoadFileWithResult(absolutePath, force)
 	local chunk, error = loadfile(absolutePath)
 	if chunk then
 		-- Create an empty table for a local lua environment, and run the chunk inside that scratch environment

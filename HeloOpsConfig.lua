@@ -71,7 +71,7 @@ function CTLD:_AddGroupsFromSTM( isCrated, templateName, missionDirPath, sidecar
 
 	-- Attempt to load a sidecar file with menu names, weights, counts, etc
 	local sidecarFilePath = sidecarAbsolutePath_ or FMS.PATH(missionDirPath .. "\\" .. templateName .. ".lua")
-	local troopsLookup = FMS.LoadfileWithResult(sidecarFilePath)
+	local troopsLookup = FMS.LoadFileWithResult(sidecarFilePath)
 
 	local templateFilePath = FMS.PATH(missionDirPath .. "\\" .. templateName .. ".stm")
 	FMS.RegisterSTMFile(templateFilePath,

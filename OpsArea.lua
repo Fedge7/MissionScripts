@@ -67,7 +67,7 @@ function FMS.OpsArea:NewFromSTM( areaName, templateName, relPath_, zoneName_, sp
 	-- If relPath_ is nil, there's a good chance we're in a static environment and can't do any disk loads
 	if relPath_ then
 		local sidecarFilePath = FMS.PATH(relPath_ .. "\\" .. templateName .. ".mnu")
-		groupNameLookupTable = FMS.LoadfileWithResult(sidecarFilePath)
+		groupNameLookupTable = FMS.LoadFileWithResult(sidecarFilePath)
 	end
 
 	-- We need to traverse the STM file first, to get the positions of all the units so that we can
