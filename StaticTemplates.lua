@@ -137,8 +137,14 @@ function FMS.RegisterSTMTable( stmTable, groupHandler_, staticHandler_, lateActi
 				_trace("RegisterSTMTable() -- setting lateActivation to " .. tostring(lateActivation_))
 			end
 
+			-- We have to set a new groupId here because the id in the STM file may collide with with ids present in the actual mission/miz file
+			vehicleGroupTable.groupId = FMS.GetUniqueStaticID()
+			for i, unit in pairs(vehicleGroupTable.units) do
+				unit.unitId = FMS.GetUniqueStaticID()
+			end
+
 			local grp = _DATABASE:Spawn(vehicleGroupTable)
-			_trace("_DATABASE:Spawn() '"..grp:GetName().."'  [id_ = "..grp:GetDCSObject()["id_"].."]")
+			_debug("_DATABASE:Spawn() '"..grp:GetName().."'  [id_ = "..grp:GetDCSObject()["id_"].."]")
 			FMS.CallHandler(groupHandler_, vehicleGroupTable, category, coalitionId, countryId)
 		end,
 
@@ -146,7 +152,7 @@ function FMS.RegisterSTMTable( stmTable, groupHandler_, staticHandler_, lateActi
 			-- We have to set a new unitId here because the id in the STM file may collide with with ids present in the actual mission/miz file
 			staticGroupTable.units[1].unitId = FMS.GetUniqueStaticID()
 			_DATABASE:_RegisterStaticTemplate(staticGroupTable, coalitionId, category, countryId)
-			_debug("_DATABASE:_RegisterStaticTemplate() name=" .. tostring(staticGroupTable.name))
+			_debug("_DATABASE:_RegisterStaticTemplate() name=" .. tostring(staticGroupTable.name) .. " with unitId=" .. tostring(staticGroupTable.units[1].unitId))
 			FMS.CallHandler(staticHandler_, staticGroupTable, coalitionId, countryId)
 		end
 	)
@@ -177,15 +183,21 @@ function FMS.SpawnSTMTable( stmTable, spawnedHandler_ )
 end
 
 function FMS.StaticTemplates._SpawnStatic(staticGroupTable, coalitionId, countryId, newName_)
-	_trace("FMS.StaticTemplates._SpawnStatic()")
+	_debug("FMS.StaticTemplates._SpawnStatic()")
 	local unitTable = staticGroupTable.units[1]
 
 	-- We have to set a new unitId here because the id in the STM file may collide with with ids present in the actual mission/miz file
 	unitTable.unitId = FMS.GetUniqueStaticID()
 	local spwn = SPAWNSTATIC:NewFromTemplate(unitTable, countryId)
 	local spawnedStatic = spwn:Spawn(nil, newName_)
-	_trace("Spawned STATIC: " .. tostring(spawnedStatic:GetName()))
-	return spawnedStatic
+	if spawnedStatic then
+		_debug("  - Spawned STATIC: " .. tostring(spawnedStatic:GetName()))
+		return spawnedStatic
+	elseif staticGroupTable and staticGroupTable.name then
+		_lg("  -  Couldn't find spawnedStatic for static table named '"..staticGroupTable.name.."'", FMS.StaticTemplates.LOG_LEVEL.ERROR)
+	else
+		_lg("  -  Couldn't find spawnedStatic", FMS.StaticTemplates.LOG_LEVEL.ERROR)
+	end
 end
 
 -------------------------------------------------------------------------------
@@ -232,18 +244,18 @@ function FMS._TraverseSTMTable( stmTable, groupHandler_, staticHandler_ )
 	end
 
 	for coalitionName, coalitionTable in pairs(stmTable.coalition) do
-		_debug("STMPARSE: Processing coalition '"..coalitionName.."'")
+		_trace("STMPARSE: Processing coalition '"..coalitionName.."'")
 		local coalitionId = FMS.StaticTemplates.CoalitionIdForString(coalitionName)
 		
 		if type(coalitionTable) == 'table' and coalitionTable.country then
 			for _,countryTable in pairs(coalitionTable.country) do
-				_debug("STMPARSE: Processing country '" .. countryTable.name .. "'")
+				_trace("STMPARSE: Processing country '" .. countryTable.name .. "'")
 
 				if type(countryTable) == 'table' then
 					local countryId = countryTable.id or country.id.USA
 					local countryName = countryTable.name or "USA"
 					for countryTableProperty, countryTableTable in pairs(countryTable) do
-						_debug("STMPARSE: countryTableProperty=" .. countryTableProperty)
+						_trace("STMPARSE: countryTableProperty=" .. countryTableProperty)
 						if (
 							(type(countryTableTable) == 'table')
 							and countryTableTable.group
@@ -256,7 +268,7 @@ function FMS._TraverseSTMTable( stmTable, groupHandler_, staticHandler_ )
 							local category = FMS.StaticTemplates.UnitCategories[string.lower(categoryName)]
 
 							for _,groupTemplate in pairs(categoryTable) do
-								_debug("STMPARSE: groupTemplate.name=" .. groupTemplate.name)
+								_trace("STMPARSE: groupTemplate.name=" .. groupTemplate.name)
 								if groupTemplate and groupTemplate.units and type(groupTemplate.units) == 'table' then
 
 									if categoryName ~= "static" then
