@@ -347,7 +347,7 @@ function CTLD:ConfigureFARP(
 
 			UTILS.SpawnFARPAndFunctionalStatics(FarpPadStaticName, coord, ENUMS.FARPType.INVISIBLE)
 			self:logINF("Spawning FARP and Functional Statics. name: '" .. FarpPadStaticName .. "'")
-			FMS.HeloOps.FixFARP(farpPadStaticName)
+			FMS.HeloOps.FixFARP(FarpPadStaticName)
 			
 			-- TODO: Do we need to make a loadzone?
 		end
@@ -559,7 +559,6 @@ function FMS.HeloOps.FixFARP(farpName)
 	end
 	function check(wh)
 		local ac, liqs, items = wh:GetInventory()
-		UTILS.PrintTableToLog(items)
 		for _, liq in pairs(liqs) do
 			if liq > 0 then
 				LOG:Log("  - check liquids: GOOD ("..liq..")")
