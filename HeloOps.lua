@@ -347,6 +347,7 @@ function CTLD:ConfigureFARP(
 
 			UTILS.SpawnFARPAndFunctionalStatics(FarpPadStaticName, coord, ENUMS.FARPType.INVISIBLE)
 			self:logINF("Spawning FARP and Functional Statics. name: '" .. FarpPadStaticName .. "'")
+			FMS.HeloOps.FixFARP(farpPadStaticName)
 			
 			-- TODO: Do we need to make a loadzone?
 		end
@@ -535,4 +536,55 @@ function FMS.HeloOps.RunBuiltInTest()
 		env.info(msg)
 		MESSAGE:New(msg):ToAll()
 	end
+end
+
+function FMS.HeloOps.FixFARP(farpName)
+	LOG:Log("FixFARP("..farpName..")")
+	function set_liquids(wh, tons)
+		local kgs = (tons or 100) * 1000
+		LOG:Log("  - FARP set_liquids("..farpName..", "..tostring(kgs).." kgs)")
+		wh:SetLiquid(STORAGE.Liquid.DIESEL, kgs) -- kgs to tons
+		wh:SetLiquid(STORAGE.Liquid.GASOLINE, kgs)
+		wh:SetLiquid(STORAGE.Liquid.JETFUEL, kgs)
+		wh:SetLiquid(STORAGE.Liquid.MW50, kgs)
+	end
+	function set_items(wh, count)
+		local count = count or 100
+		LOG:Log("  - FARP set_items("..farpName..", "..tostring(count).." qty)")
+		for cat,nitem in pairs(ENUMS.Storage.weapons) do
+			for name,item in pairs(nitem) do
+				wh:SetItem(item, count)
+			end
+		end
+	end
+	function check(wh)
+		local ac, liqs, items = wh:GetInventory()
+		UTILS.PrintTableToLog(items)
+		for _, liq in pairs(liqs) do
+			if liq > 0 then
+				LOG:Log("  - check liquids: GOOD ("..liq..")")
+			else
+				LOG:Log("  - check liquids: BAD")
+				-- TODO: set_liquids(wh, 100)
+			end
+			break
+		end
+		for _, item in pairs(items) do
+			if item then
+				LOG:Log("  - check items: GOOD")
+			else
+				LOG:Log("  - check items: BAD")
+				-- TODO: set_items(wh, 500)
+			end
+			break
+		end
+	end
+	local wh = AIRBASE:FindByName(farpName):GetStorage()
+
+	TIMER:New(function() set_liquids(wh, 0)   end):Start(1)
+	TIMER:New(function() set_items(wh, 0)     end):Start(2)
+	TIMER:New(function() set_liquids(wh, 100) end):Start(3)
+	TIMER:New(function() set_items(wh, 500)   end):Start(4)
+	TIMER:New(function() check(wh)            end):Start(5)
+	TIMER:New(function() MESSAGE:New("FARP has been reset"):ToAll() end):Start(6)
 end
