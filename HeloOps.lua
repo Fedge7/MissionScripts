@@ -208,6 +208,8 @@ FMS.HeloOps.FARP = {
 
 	-- The index of the next FARP clearname that will be used
 	NameIdx = 1, -- numbers 1..10
+
+	Count = 1,
 	
 	-- FARP Radio. First one has 130AM, next 131 and for forth
 	Frequency = 130,
@@ -345,9 +347,11 @@ function CTLD:ConfigureFARP(
 			-- TODO: Disable custom FARP spawning as a hotfix for DCS FARP Warehouse/Storage changes
 			-- BuildAFARP(coord)
 
-			UTILS.SpawnFARPAndFunctionalStatics(FarpPadStaticName, coord, ENUMS.FARPType.INVISIBLE)
+			UTILS.SpawnFARPAndFunctionalStatics("FARP-"..tostring(FMS.HeloOps.FARP.Count), coord, ENUMS.FARPType.INVISIBLE)
 			self:logINF("Spawning FARP and Functional Statics. name: '" .. FarpPadStaticName .. "'")
 			FMS.HeloOps.FixFARP(FarpPadStaticName)
+
+			FMS.HeloOps.FARP.Count = FMS.HeloOps.FARP.Count + 1
 			
 			-- TODO: Do we need to make a loadzone?
 		end
@@ -552,7 +556,9 @@ function FMS.HeloOps.FixFARP(farpName)
 		local count = count or 100
 		LOG:Log("  - FARP set_items("..farpName..", "..tostring(count).." qty)")
 		for cat,nitem in pairs(ENUMS.Storage.weapons) do
+			-- LOG:Log("    - cat: "..cat)
 			for name,item in pairs(nitem) do
+				-- LOG:Log("      - name: "..name)
 				wh:SetItem(item, count)
 			end
 		end
@@ -587,3 +593,17 @@ function FMS.HeloOps.FixFARP(farpName)
 	TIMER:New(function() check(wh)            end):Start(5)
 	TIMER:New(function() MESSAGE:New("FARP has been reset"):ToAll() end):Start(6)
 end
+
+-- Temporary fix for MOOSE OH58 weapons
+ENUMS.Storage.weapons.OH58.FIM92                = {4,4,7,449}
+ENUMS.Storage.weapons.OH58.MG_M3P100            = {4,15,46,2608}
+ENUMS.Storage.weapons.OH58.MG_M3P200            = {4,15,46,2607}
+ENUMS.Storage.weapons.OH58.MG_M3P300            = {4,15,46,2606}
+ENUMS.Storage.weapons.OH58.MG_M3P400            = {4,15,46,2605}
+ENUMS.Storage.weapons.OH58.MG_M3P500            = {4,15,46,2604}
+ENUMS.Storage.weapons.OH58.Smk_Grenade_Blue     = {4,5,9,486}
+ENUMS.Storage.weapons.OH58.Smk_Grenade_Green    = {4,5,9,487}
+ENUMS.Storage.weapons.OH58.Smk_Grenade_Red      = {4,5,9,485}
+ENUMS.Storage.weapons.OH58.Smk_Grenade_Violet   = {4,5,9,488}
+ENUMS.Storage.weapons.OH58.Smk_Grenade_White    = {4,5,9,490}
+ENUMS.Storage.weapons.OH58.Smk_Grenade_Yellow   = {4,5,9,489}
