@@ -10,14 +10,14 @@ function FMS.Navy.SetupNavySupportAircraft(carrierUnitName_, recoveryTankerGroup
 	local carrierUnit = UNIT:FindByName(carrierUnitName)
 
 	if not carrierUnit then
-		LOG:Log("Unable to find a carrier named '"..(carrierUnitName or 'nil').."'. Skipping initialization of navy support aircraft.", true, LOG.Level.ERROR)
+		LOG:Log("FMS.Navy: Unable to find a carrier named '"..(carrierUnitName or 'nil').."'. Skipping initialization of navy support aircraft.", true, LOG.Level.ERROR)
 		return false
 	end
 
 	local recoveryTankerGroupName = recoveryTankerGroupName_ or "Recovery Tanker"
 	local tanker = FMS.Navy.SetupRecoveryTanker(carrierUnit, recoveryTankerGroupName, SPAWN.Takeoff.Air)
 
-	local msg = "Recovery Tanker Initialization ("..recoveryTankerGroupName.."): "
+	local msg = "FMS.Navy: Recovery Tanker Initialization ("..recoveryTankerGroupName.."): "
 	if tanker then
 		LOG:Log(msg.."SUCCESS", true, LOG.Level.INFO)
 	else
@@ -35,7 +35,7 @@ function FMS.Navy.SetupNavySupportAircraft(carrierUnitName_, recoveryTankerGroup
 			LOG:Log(msg.."FAILURE", true, LOG.Level.ERROR)
 		end
 	else
-		LOG:Log("Skipping Rescue Helo Initialization", true, LOG.Level.INFO)
+		LOG:Log("FMS.Navy: Skipping Rescue Helo Initialization", true, LOG.Level.INFO)
 	end
 end
 
@@ -51,7 +51,7 @@ function FMS.Navy.SetupRecoveryTanker(carrierUnit, groupTemplateName, takeoffTyp
 	-- If we spawned in the air, let's respawn in the air
 	if takeoffType_ == SPAWN.Takeoff.Air then tanker:SetRespawnInAir() end
 
-	env.info("NAVYGROUP: Starting RECOVERYTANKER: " .. groupTemplateName)
+	LOG:Log("FMS.Navy: Starting RECOVERYTANKER: " .. groupTemplateName)
 	tanker:__Start(2)
 	return tanker
 end
@@ -63,7 +63,7 @@ end
 function FMS.Navy.SetupRescueHelo(carrierUnit, groupTemplateName, takeoffType_) 
 	local grp = GROUP:FindByName(groupTemplateName)
 	if not grp then
-		LOG:Log("Unable to find recovery helicopter group '"..groupTemplateName.."'", false, LOG.Level.WARNING)
+		LOG:Log("FMS.Navy: Unable to find recovery helicopter group '"..groupTemplateName.."'", false, LOG.Level.WARNING)
 		return
 	end
 
@@ -73,7 +73,7 @@ function FMS.Navy.SetupRescueHelo(carrierUnit, groupTemplateName, takeoffType_)
 	helo:SetTakeoff(takeoffType_ or SPAWN.Takeoff.Air)
 	if takeoffType_ == SPAWN.Takeoff.Air then helo:SetRespawnInAir() end
 
-	env.info("NAVYGROUP: Starting RESCUEHELO: " .. groupTemplateName)
+	LOG:Log("FMS.Navy: Starting RESCUEHELO: " .. groupTemplateName)
 	helo:Start()
  
 	-- NOTE: it is very important to define the RESCUEHELO object as global variable.
