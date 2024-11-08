@@ -59,7 +59,8 @@ end
 -- @param #string zoneName_ The name of the zone in the ME that defines this OpsArea. Optional. If not specified, a zone will created for you that contains all the STM's groups. Passing empty string (i.e. `""`) will surpress the automatic creation of a zone.
 -- @param #string spawnZonePrefix Will associate any trigger zones defined in the ME with this prefix as part of this OpsArea. Optional.
 -- @param #boolean showInMenu_ If true, adds a menu to the "Area of Operations" F10 menu for this AO. Optional, defaults to true.
-function FMS.OpsArea:NewFromSTM( areaName, templateName, relPath_, zoneName_, spawnZonePrefix_, showInMenu_, marker_ )
+function FMS.OpsArea:NewFromSTM( areaName, templateName, relPath_, zoneName_, spawnZonePrefix_, showInMenu_, marker_, showIndividualGroupMenus_)
+
 	local ao = FMS.OpsArea:_New(areaName)
 	
 	-- Check to see if we can find an accompanying menu dictionary file
@@ -112,7 +113,7 @@ function FMS.OpsArea:NewFromSTM( areaName, templateName, relPath_, zoneName_, sp
 		end
 	end
 
-	ao:_initZone(theZone, showInMenu_, (marker_ or 0))
+	ao:_initZone(theZone, showInMenu_, (marker_ or 0), showIndividualGroupMenus_)
 
 	if spawnZonePrefix_ then
 		ao:scanForSpawnzones(spawnZonePrefix_)
@@ -238,7 +239,7 @@ function FMS.OpsArea:_init(areaName)
 	return self
 end
 
-function FMS.OpsArea:_initZone(zoneOrZoneName, showInMenu_, markerUncertaintyOrVec2_)
+function FMS.OpsArea:_initZone(zoneOrZoneName, showInMenu_, markerUncertaintyOrVec2_, showIndividualGroupMenus_)
 
 	if type(zoneOrZoneName) == 'string' then
 		self.log:log("Creating a new zone named '" .. zoneOrZoneName .. "'.")
@@ -263,7 +264,7 @@ function FMS.OpsArea:_initZone(zoneOrZoneName, showInMenu_, markerUncertaintyOrV
 
 	-- Construct the menu entry for this AO, if required
 	if showInMenu_ or showInMenu_ == nil then
-		self:_buildMenus()
+		self:_buildMenus(showIndividualGroupMenus_)
 	end
 
 	return self
@@ -284,8 +285,8 @@ function FMS.OpsArea:autoScan()
 	return self
 end
 
-function FMS.OpsArea:_buildMenus()
-	self.log:log("Creating menu entries", LOG.Level.DEBUG)
+function FMS.OpsArea:_buildMenus(showIndividualGroupMenus_)
+	self.log:log("Creating menu entries", LOG.Level.INFO)
 	
 	if not FMS.OpsArea.MainMenu then
 		FMS.OpsArea.MainMenu = MENU_MISSION:New("Areas of Operation")
@@ -303,9 +304,14 @@ function FMS.OpsArea:_buildMenus()
 	end
 	MENU_MISSION_COMMAND:New("Respawn All", self.menus.spawnMenu, FMS.OpsArea.respawnAll, self)
 	
-	--- The submenu for spawning groups
-	-- This list will grow with new menus as "More" menus are added to handle overflow
-	self.spawnGroupMenus = { MENU_MISSION:New("Spawn Group", self.menus.spawnMenu) }
+	if showIndividualGroupMenus_ or showIndividualGroupMenus_ == nil then
+		self.log:log("Creating individual group spawn menus", LOG.Level.INFO)
+		--- The submenu for spawning groups
+		-- This list will grow with new menus as "More" menus are added to handle overflow
+		self.spawnGroupMenus = { MENU_MISSION:New("Spawn Group", self.menus.spawnMenu) }
+	else
+		self.log:log("Skipping individual group spawn menus", LOG.Level.INFO)
+	end
 		
 	-- Destroy menu and submenus
 	local destroyMenu = MENU_MISSION:New("Destroy", self.menus.aoMenu)
