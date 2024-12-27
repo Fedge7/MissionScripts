@@ -43,6 +43,7 @@ function CTLD:applyDefaultConfiguration()
 	self:SetUnitCapabilities("UH-1H",           true,  true, 1,       8,     20,    2000)
 	self:SetUnitCapabilities("Mi-8MT",          true,  true, 2,      24,     30,   10000)
 	self:SetUnitCapabilities("Mi-8MTV2",        true,  true, 2,      24,     30,   10000)
+	self:SetUnitCapabilities("CH-47F",          true,  true, 2,      33,     30,   15000)
 	-- Tweaked the max weights to allow for realistic overloading
 	
 	self:logINF("FMS default CTLD configuration and parameters applied.")
@@ -99,9 +100,11 @@ function CTLD:_AddGroupsFromSTM( isCrated, templateName, missionDirPath, sidecar
 	)
 end
 
-function CTLD:registerSTMFARP( stmTable, oa_path, FARPTemplateGroupName_ )
+function CTLD:registerSTMFARP( stmTable, oa_path, FARPTemplatePlaceholderGroupName_, cratesCount_, perCrateMassKg_ )
 	
-	local _FARPTemplateGroupName = FARPTemplateGroupName_ or "FARP"
+	local _FARPTemplateGroupName = FARPTemplatePlaceholderGroupName_ or "FARP"
+	local cratesCount = cratesCount_ or 2
+	local perCrateMassKg = perCrateMassKg_ or 2000
 	local _heliportStaticName = nil
 	local groupNames = {}
 	local staticNames = {}
@@ -126,7 +129,7 @@ function CTLD:registerSTMFARP( stmTable, oa_path, FARPTemplateGroupName_ )
 		true
 	)
 
-	self:AddFARPCrates("FARP", _FARPTemplateGroupName, 2, 1500)
+	self:AddFARPCrates("FARP", _FARPTemplateGroupName, cratesCount, perCrateMassKg)
 	self:ConfigureFARP(_FARPTemplateGroupName, _heliportStaticName, groupNames, staticNames, nil)
 
 end

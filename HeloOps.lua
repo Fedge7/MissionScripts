@@ -151,7 +151,7 @@ function CTLD:AddVehicleGroups(menuName, groupTemplateNames, crateCount, perCrat
 	self:logINF("Added crates/cargo '" .. menuName .. "'")
 end
 
-function CTLD:AddFARPCrates(menuName, farpGroupTemplateName, crateCount, perCrateMassKg)
+function CTLD:AddFARPCrates(menuName, farpGroupTemplateName, crateCount_, perCrateMassKg_)
 	if not GROUP:FindByName(farpGroupTemplateName) then
 		self:logWAR("Unable to add FARP '" .. farpGroupTemplateName .. "'")
 		FMS.HeloOps.Error.MissingFARP = FMS.HeloOps.Error.MissingFARP + 1
@@ -162,8 +162,8 @@ function CTLD:AddFARPCrates(menuName, farpGroupTemplateName, crateCount, perCrat
 		menuName or "FARP",
 		{farpGroupTemplateName},
 		CTLD_CARGO.Enum.FOB,
-		crateCount or 2,
-		perCrateMassKg or 1500
+		crateCount_ or 2,
+		perCrateMassKg_ or 1500
 		)
 	self:logINF("Added FARP crates '" .. farpGroupTemplateName .. "'")
 end
@@ -228,7 +228,7 @@ FMS.HeloOps.FARP = {
 }
 
 function CTLD:ConfigureFARP(
-	FARPTemplateGroupName,    -- the name of the group that acts as a template for FARPs spawned in via the CTLD F10 radio menu
+	FARPTemplateGroupName,    -- the name of the group that acts as a placeholder group for FARPs spawned in via the CTLD F10 radio menu
 	FarpPadStaticName,        -- the name of the actual FARP static (should be an invisible FARP, FARP T, FARP Helipad, etc)
 	FarpTemplateGroupsNames,  -- the names of any additional groups that should be spawned at the FARP
 	FarpStaticsNames,         -- the names of any additional statics that should be spawned at the FARP
@@ -336,20 +336,19 @@ function CTLD:ConfigureFARP(
 	end
 
 	-- TODO: This will conflict with any other attempts to respond to `OnAfterCratesBuild`
-	function ctld_instance:OnAfterCratesBuild(From, Event, To, Group, Unit, Vehicle)
-		local name = Vehicle:GetName()
-
+	function ctld_instance:OnAfterCratesBuild(From, Event, To, groupThatBuiltCrates, unitThatBuiltCrates, placeholderGroup)
 		-- Handle FARPs/FOBs
-		if string.find(name, FARPTemplateGroupName or "FARP", 1, true) then
-			local coord = Vehicle:GetCoordinate()
-			Vehicle:Destroy(false) -- Remove the group that was "built" from the crate(s)
+		if string.find(placeholderGroup:GetName(), FARPTemplateGroupName or "FARP", 1, true) then
+			local coord = placeholderGroup:GetCoordinate()
+			placeholderGroup:Destroy(false) -- Remove the group that was "built" from the crate(s)
 
 			-- TODO: Disable custom FARP spawning as a hotfix for DCS FARP Warehouse/Storage changes
 			-- BuildAFARP(coord)
 
-			UTILS.SpawnFARPAndFunctionalStatics("FARP-"..tostring(FMS.HeloOps.FARP.Count), coord, ENUMS.FARPType.INVISIBLE)
-			self:logINF("Spawning FARP and Functional Statics. name: '" .. FarpPadStaticName .. "'")
-			FMS.HeloOps.FixFARP(FarpPadStaticName)
+			local spawnedFarpObjects, adfName = UTILS.SpawnFARPAndFunctionalStatics("FARP-"..tostring(FMS.HeloOps.FARP.Count), coord, ENUMS.FARPType.INVISIBLE)
+			local spawnedFarpName = spawnedFarpObjects[1].StaticName
+			self:logINF("Spawning FARP and Functional Statics. FARP Static Name: '" .. spawnedFarpName .. "'")
+			FMS.HeloOps.FixFARP(spawnedFarpName)
 
 			FMS.HeloOps.FARP.Count = FMS.HeloOps.FARP.Count + 1
 			
@@ -543,10 +542,10 @@ function FMS.HeloOps.RunBuiltInTest()
 end
 
 function FMS.HeloOps.FixFARP(farpName)
-	LOG:Log("FixFARP("..farpName..")")
+	FMS.HeloOps.Log.info("FixFARP("..farpName..")")
 	function set_liquids(wh, tons)
 		local kgs = (tons or 100) * 1000
-		LOG:Log("  - FARP set_liquids("..farpName..", "..tostring(kgs).." kgs)")
+		FMS.HeloOps.Log.info("  - FARP set_liquids("..farpName..", "..tostring(kgs).." kgs)")
 		wh:SetLiquid(STORAGE.Liquid.DIESEL, kgs) -- kgs to tons
 		wh:SetLiquid(STORAGE.Liquid.GASOLINE, kgs)
 		wh:SetLiquid(STORAGE.Liquid.JETFUEL, kgs)
@@ -554,11 +553,11 @@ function FMS.HeloOps.FixFARP(farpName)
 	end
 	function set_items(wh, count)
 		local count = count or 100
-		LOG:Log("  - FARP set_items("..farpName..", "..tostring(count).." qty)")
+		FMS.HeloOps.Log.info("  - FARP set_items("..farpName..", "..tostring(count).." qty)")
 		for cat,nitem in pairs(ENUMS.Storage.weapons) do
-			-- LOG:Log("    - cat: "..cat)
+			-- FMS.HeloOps.Log.info("    - cat: "..cat)
 			for name,item in pairs(nitem) do
-				-- LOG:Log("      - name: "..name)
+				-- FMS.HeloOps.Log.info("      - name: "..name)
 				wh:SetItem(item, count)
 			end
 		end
@@ -567,24 +566,32 @@ function FMS.HeloOps.FixFARP(farpName)
 		local ac, liqs, items = wh:GetInventory()
 		for _, liq in pairs(liqs) do
 			if liq > 0 then
-				LOG:Log("  - check liquids: GOOD ("..liq..")")
+				FMS.HeloOps.Log.info("  - check liquids: GOOD ("..liq..")")
 			else
-				LOG:Log("  - check liquids: BAD")
+				FMS.HeloOps.Log.warning("  - check liquids: BAD")
 				-- TODO: set_liquids(wh, 100)
 			end
 			break
 		end
 		for _, item in pairs(items) do
 			if item then
-				LOG:Log("  - check items: GOOD")
+				FMS.HeloOps.Log.info("  - check items: GOOD")
 			else
-				LOG:Log("  - check items: BAD")
+				FMS.HeloOps.Log.warning("  - check items: BAD")
 				-- TODO: set_items(wh, 500)
 			end
 			break
 		end
 	end
-	local wh = AIRBASE:FindByName(farpName):GetStorage()
+	
+	local ab = AIRBASE:FindByName(farpName)
+	
+	if ab == nil then
+		FMS.HeloOps.Log.error("FixFARP: Cannot find airbase named '"..farpName.."'.")
+		return
+	end
+	
+	local wh = ab:GetStorage()
 
 	TIMER:New(function() set_liquids(wh, 0)   end):Start(1)
 	TIMER:New(function() set_items(wh, 0)     end):Start(2)
