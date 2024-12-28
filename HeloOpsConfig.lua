@@ -39,7 +39,6 @@ function CTLD:applyDefaultConfiguration()
 	--                       Airframe          crates troops crates# troops# length maxwt
 	self:SetUnitCapabilities("AH-64D_BLK_II",  false, false, 0,       0,     20,     200)
 	self:SetUnitCapabilities("UH-60L",          true,  true, 1,      14,     25,    5000)
-	
 	self:SetUnitCapabilities("UH-1H",           true,  true, 1,       8,     20,    2000)
 	self:SetUnitCapabilities("Mi-8MT",          true,  true, 2,      24,     30,   10000)
 	self:SetUnitCapabilities("Mi-8MTV2",        true,  true, 2,      24,     30,   10000)

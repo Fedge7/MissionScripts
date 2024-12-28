@@ -227,39 +227,41 @@ FMS.HeloOps.FARP = {
 	end
 }
 
+-- CustomFARP table params:
+-- FarpPadStaticName,        -- the name of the actual FARP static (should be an invisible FARP, FARP T, FARP Helipad, etc)
+-- FarpTemplateGroupsNames,  -- the names of any additional groups that should be spawned at the FARP
+-- FarpStaticsNames,         -- the names of any additional statics that should be spawned at the FARP
+-- LayoutHandler             -- a function that overrides the default layout of the FARP
 function CTLD:ConfigureFARP(
-	FARPTemplateGroupName,    -- the name of the group that acts as a placeholder group for FARPs spawned in via the CTLD F10 radio menu
-	FarpPadStaticName,        -- the name of the actual FARP static (should be an invisible FARP, FARP T, FARP Helipad, etc)
-	FarpTemplateGroupsNames,  -- the names of any additional groups that should be spawned at the FARP
-	FarpStaticsNames,         -- the names of any additional statics that should be spawned at the FARP
-	LayoutHandler             -- a function that overrides the default layout of the FARP
+	FARPTemplateGroupName    -- the name of the group that acts as a placeholder group for FARPs spawned in via the CTLD F10 radio menu
+	-- CustomFARP_				  -- a table containing the required elements for a custom FARP.
 	)
-	
-	if STATIC:FindByName(FarpPadStaticName, false) then
-		self:logINF("Found FARP static heliport '" .. FarpPadStaticName .. "'")
-	else
-		local msg = "Unable to find FARP static '" .. (FarpPadStaticName or "_FarpPadStaticName_") .. "'. FARP cannot be constructed."
-		self:logERR(msg)
-		MESSAGE:New(msg, 15, "HeloOps"):ToAll()
-		return
-	end
 
-	-- Check that all the group templates exist
-	for _,groupName in pairs(FarpTemplateGroupsNames or {}) do
-		if GROUP:FindByName(groupName) then
-			self:logINF("Found FARP template group '" .. groupName .. "'")
+	if CustomFARP_ then
+		if STATIC:FindByName(CustomFARP_.FarpPadStaticName, false) then
+			self:logINF("Found FARP static heliport '" .. CustomFARP_.FarpPadStaticName .. "'")
 		else
-			self:logWAR("Unable to find FARP template group '" .. groupName .. "'")
-			FMS.HeloOps.Error.MissingFARP = FMS.HeloOps.Error.MissingFARP + 1
+			local msg = "Unable to find custom FARP static '" .. (CustomFARP_.FarpPadStaticName or "_FarpPadStaticName_") .. "'. Building default FARP."
+			self:logERR(msg)
 		end
-	end
 
-	for _, static in pairs(FarpStaticsNames or {}) do
-		if STATIC:FindByName(static, false) then
-			self:logINF("Found FARP static '" .. static .. "'")
-		else
-			self:logWAR("Unable to find FARP static '" .. static .. "'")
-			FMS.HeloOps.Error.MissingFARP = FMS.HeloOps.Error.MissingFARP + 1
+		-- Check that all the group templates exist
+		for _,groupName in pairs(CustomFARP_.FarpTemplateGroupsNames or {}) do
+			if GROUP:FindByName(groupName) then
+				self:logINF("Found FARP template group '" .. groupName .. "'")
+			else
+				self:logWAR("Unable to find FARP template group '" .. groupName .. "'")
+				FMS.HeloOps.Error.MissingFARP = FMS.HeloOps.Error.MissingFARP + 1
+			end
+		end
+
+		for _, static in pairs(CustomFARP_.FarpStaticsNames or {}) do
+			if STATIC:FindByName(static, false) then
+				self:logINF("Found FARP static '" .. static .. "'")
+			else
+				self:logWAR("Unable to find FARP static '" .. static .. "'")
+				FMS.HeloOps.Error.MissingFARP = FMS.HeloOps.Error.MissingFARP + 1
+			end
 		end
 	end
 
@@ -298,9 +300,9 @@ function CTLD:ConfigureFARP(
 		-- Spawn the actual FARP static
 		local farpStaticWrapper = invisibleFarpSpawn:SpawnFromZone(zoneSpawn, Heading, "FARP "..farp.name)
 
-		if LayoutHandler ~= nil then
+		if CustomFARP_.LayoutHandler ~= nil then
 			self:logINF("Calling custom FARP layout handler")
-			LayoutHandler(coord, farpTemplateGroupsNames, farpStaticsNames)
+			CustomFARP_.LayoutHandler(coord, farpTemplateGroupsNames, farpStaticsNames)
 		else
 			local delta = 360 / (#farpTemplateGroupsNames + #farpStaticsNames) --degrees
 			local base = 360 --degrees
@@ -345,13 +347,21 @@ function CTLD:ConfigureFARP(
 			-- TODO: Disable custom FARP spawning as a hotfix for DCS FARP Warehouse/Storage changes
 			-- BuildAFARP(coord)
 
-			local spawnedFarpObjects, adfName = UTILS.SpawnFARPAndFunctionalStatics("FARP-"..tostring(FMS.HeloOps.FARP.Count), coord, ENUMS.FARPType.INVISIBLE)
+			-- Spawn the default MOOSE FARP.
+			local newFarpName = "FARP-"..tostring(FMS.HeloOps.FARP.Count)
+			local spawnedFarpObjects, adfName = UTILS.SpawnFARPAndFunctionalStatics(newFarpName, coord, ENUMS.FARPType.INVISIBLE)
 			local spawnedFarpName = spawnedFarpObjects[1].StaticName
-			self:logINF("Spawning FARP and Functional Statics. FARP Static Name: '" .. spawnedFarpName .. "'")
+			FMS.HeloOps.FARP.Count = FMS.HeloOps.FARP.Count + 1
+
+			-- Notify everybody
+			local unitName = unitThatBuiltCrates:GetName() or "Aircraft"
+			local msg = unitName .. ' has deployed "'..spawnedFarpName..'" at '..coord:ToStringMGRS()
+			self:logINF(msg)
+			MESSAGE:New(msg, 30):ToAll()
+
+			-- Bullshit DCS hack to fix ED's garbage code.
 			FMS.HeloOps.FixFARP(spawnedFarpName)
 
-			FMS.HeloOps.FARP.Count = FMS.HeloOps.FARP.Count + 1
-			
 			-- TODO: Do we need to make a loadzone?
 		end
 	end
@@ -598,5 +608,5 @@ function FMS.HeloOps.FixFARP(farpName)
 	TIMER:New(function() set_liquids(wh, 100) end):Start(3)
 	TIMER:New(function() set_items(wh, 500)   end):Start(4)
 	TIMER:New(function() check(wh)            end):Start(5)
-	TIMER:New(function() MESSAGE:New("FARP has been reset"):ToAll() end):Start(6)
+	TIMER:New(function() MESSAGE:New(farpName.."' has been supplied."):ToAll() end):Start(6)
 end
