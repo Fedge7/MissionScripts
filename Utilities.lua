@@ -89,7 +89,7 @@ function GROUP:moveToNearestEnemy(maximumEnemyRange_)
 
 	env.info("Found " .. tostring(enemiesSet:Count()) .. " enemies.")
 
-	-- TODO: Check for enemy count
+	if enemiesSet:Count() < 1 then return end
 
 	local enemies = {}
 	enemiesSet:ForEachGroup(function(_enemy)
