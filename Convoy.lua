@@ -30,7 +30,6 @@ function FMS.Convoy:_init(groupName)
 	
 	if self.showInMenu then
 		self.menu = MENU_MISSION:New(self.missionName, FMS.Convoy.MainMenu)
-		-- self.menuSpawn = MENU_MISSION_COMMAND:New("Spawn", self.menu, FMS.Convoy.spawn, self)
 		self.menuSpawn = MENU_MISSION_COMMAND:New("Start", self.menu, FMS.Convoy.spawn, self, true)
 	end
 end
@@ -51,34 +50,33 @@ end
 function FMS.Convoy:spawn(startNow_)
 	self.spawner:OnSpawnGroup(function(grp)
 
+		local msg = "Convoy '"..self.missionName.."' ready to move.\nCurrent pos: "..grp:GetCoordinate():ToStringMGRS()
+		msg = msg.."\nDestination: "..self.endCoord:ToStringMGRS()
+		MESSAGE:New(msg, 30):ToAll()
+
 		if startNow_ then
 			self:_start(grp)
 		end
 
-		local msg = "Convoy '"..self.missionName.."' ready to move.\nCurrent pos: "..grp:GetCoordinate():ToStringMGRS()
-		msg = msg.."\nDestination: "..self.endCoord:ToStringMGRS()
-		
-		MESSAGE:New(msg, 30):ToAll()
-
 		if self.showInMenu then
 			self.menuSpawn:Remove()
-			
-			if not startNow_ then
-				self.menuStart = MENU_MISSION_COMMAND:New("Start", self.menu, FMS.Convoy._start, self, grp)
-			end
-
-			self.menuHold = MENU_MISSION_COMMAND:New("Hold", self.menu, CONTROLLABLE.RouteStop, grp)
-			self.menuResume = MENU_MISSION_COMMAND:New("Resume", self.menu, CONTROLLABLE.RouteResume, grp)
-			self.menuHoldFire = MENU_MISSION_COMMAND:New("ROE Hold", self.menu, CONTROLLABLE.OptionROEHoldFire, grp)
-			self.menuEngage = MENU_MISSION_COMMAND:New("ROE Free", self.menu, CONTROLLABLE.OptionROEOpenFire, grp)
-			self.menuPositionCheck = MENU_MISSION_COMMAND:New("Position Check", self.menu, FMS.Convoy.showPosition, self, grp)
+			self:setupControlMenus()
 		end
 
-		-- TIMER:New(function()
-		-- 	LOG:Log("Convoy")
-		-- 	LOG:Log(" - Alive="..tostring(grp:IsAlive()))
-		-- 	LOG:Log(" - Life= "..tostring(grp:GetLife()))
-		-- end):Start(nil, 10) 
+		local cnvy = self
+
+		grp:HandleEvent(EVENTS.Dead)
+
+		function grp:OnEventDead( EventData )
+			-- LOG:Log("Convoy Group "..EventData.IniGroup:GetName().." onEventDead()")
+			if EventData.IniGroup == grp then
+				if not EventData.IniGroup:IsAlive() then
+					LOG:Log("CONVOY GROUP DEAD: " .. EventData.IniGroup:GetName())
+					grp:UnHandleEvent(EVENTS.Dead)
+					cnvy:failure()
+				end
+			end
+		end
 
 	end)
 
@@ -89,8 +87,23 @@ function FMS.Convoy:spawn(startNow_)
 	end
 end
 
+function FMS.Convoy:setupControlMenus()
+	self.menuHold = MENU_MISSION_COMMAND:New("Hold", self.menu, CONTROLLABLE.RouteStop, grp)
+	self.menuResume = MENU_MISSION_COMMAND:New("Resume", self.menu, CONTROLLABLE.RouteResume, grp)
+	self.menuHoldFire = MENU_MISSION_COMMAND:New("ROE Hold", self.menu, CONTROLLABLE.OptionROEHoldFire, grp)
+	self.menuEngage = MENU_MISSION_COMMAND:New("ROE Free", self.menu, CONTROLLABLE.OptionROEOpenFire, grp)
+	self.menuPositionCheck = MENU_MISSION_COMMAND:New("Position Check", self.menu, FMS.Convoy.showPosition, self, grp)
+end
+
+function FMS.Convoy:resetMenus()
+	self.menu:RemoveSubMenus()
+	self.menuSpawn = MENU_MISSION_COMMAND:New("Start", self.menu, FMS.Convoy.spawn, self, true)
+end
+
+
+
 function FMS.Convoy:_start(spawnedGroup)
-	spawnedGroup:RouteGroundOnRoad(self.endCoord, nil, nil, AI.Task.VehicleFormation.ON_ROAD)
+	spawnedGroup:RouteGroundOnRoad(self.endCoord, nil, nil, AI.Task.VehicleFormation.ON_ROAD, FMS.Convoy.WaypointFunction)
 	
 	local msg = "Convoy '"..self.missionName.."' rolling."
 	MESSAGE:New(msg, 30):ToAll()
@@ -107,6 +120,29 @@ end
 function FMS.Convoy:showPosition(spawnedGroup)
 	local str = spawnedGroup:GetCoordinate():ToStringMGRS()
 	MESSAGE:New("["..self.missionName.." Conovy] Our position is: "..str, 30):ToAll()
+end
+
+function FMS.Convoy.WaypointFunction(controllable, wptIndex, wptCount)
+	LOG:Log("Convoy group "..controllable:GetName().." passing waypoint "..tostring(wptIndex).." of "..tostring(wptCount))
+	if wptIndex >= wptCount then
+		LOG:Log("Convoy group "..controllable:GetName().." has reached its destination.")
+	end
+end
+
+function FMS.Convoy:success()
+	local msg = "Convoy '"..self.missionName.."' has reached its destination."
+	MESSAGE:New(msg, 30):ToAll()
+	LOG:Log(msg)
+
+	self:resetMenus()
+end
+
+function FMS.Convoy:failure()
+	local msg = "Convoy '"..self.missionName.."' has failed to reach its destination."
+	MESSAGE:New(msg, 30):ToAll()
+	LOG:Log(msg)
+
+	self:resetMenus()
 end
 
 function FMS.ConvoyHandlerAdapter(sender, handler_, ...)
