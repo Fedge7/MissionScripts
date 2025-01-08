@@ -68,6 +68,26 @@ function FMS.LoadFileWithResult(absolutePath, force)
 	end
 end
 
+function FMS.PrettyExplosion(coord)
+
+	local function randflare(az_)
+		local az = az_ or math.random(0,359)
+		local color = math.random(FLARECOLOR.Red, FLARECOLOR.Yellow)
+		coord:Flare(color, az)
+	end
+
+	local function randFlares(count)
+		for i=1,(count or 5) do randflare() end
+	end
+
+	-- Fire the flares
+	local r1 = math.random(3,7)
+	local r2 = math.random(3,7)
+	randFlares(math.random(3,7))
+	TIMER:New(randFlares, r1):Start(0.2)
+	TIMER:New(randFlares, r2):Start(0.4)
+end
+
 -----------------------------------------------------------------------------------------------------------------------
 --[[ MOOSE GROUP EXTENSIONS ]]-----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------------------------
