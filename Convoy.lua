@@ -55,6 +55,10 @@ function FMS.Convoy:setZones(startZone, endZone)
 	self.endZone = endZone
 end
 
+function FMS.Convoy:setCSAR(csar)
+	self.csar = csar
+end
+
 function FMS.Convoy:spawn(startNow_)
 	self.spawner:OnSpawnGroup(function(grp)
 
@@ -85,6 +89,12 @@ function FMS.Convoy:spawn(startNow_)
 		function grp:OnEventDead( EventData )
 			-- LOG:Log("Convoy Group "..EventData.IniGroup:GetName().." onEventDead()")
 			if EventData.IniGroup == grp then
+				if _self.csar then
+					-- TODO: Play radio sound
+					local crd = EventData.IniUnit:GetCoordinate()
+					_self.csar:SpawnCASEVAC(crd or grp:GetCoordinate(), coalition.side.BLUE, "Convoy Hit!", false, _self.missionName) 
+				end
+				FMS.CallHandler(_self._onDeathHandler, self, EventData)
 				if not EventData.IniGroup:IsAlive() then
 					LOG:Log("CONVOY GROUP DEAD: " .. EventData.IniGroup:GetName())
 					grp:UnHandleEvent(EVENTS.Dead)
@@ -171,6 +181,10 @@ function FMS.Convoy:cleanup()
 	self:resetMenus()
 	self.endZone:__TriggerStop(5)
 	self.endZone:UndrawZone()
+end
+
+function FMS.Convoy:onDeath(handler)
+	self._onDeathHandler = handler
 end
 
 function FMS.Convoy:onSuccess(handler)
@@ -260,17 +274,17 @@ function FMS.IED:_setupEvents()
 
 	local _self = self
 	function _self.triggerZone:OnAfterEnteredZone(from, event, to, group)
-		LOG:Log("Something entered trigger zone")
+		LOG:Log("Something entered trigger zone ".._self.zoneName)
 		if _self.iedGroup:IsAlive() then
 			local gname = group:GetName()
 			local zname = _self.zoneName
-			if group:IsGround() then
+			if group:IsAir() or group:IsPlayer() then
+				LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Performing inspection.")
+				_self:inspect()
+			elseif group:IsGround() then
 				local delay = math.random(1,15)
 				LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Triggering explosion in "..tostring(delay).." seconds.")
 				TIMER:New(FMS.IED.explode, _self):Start(delay)
-			elseif group:IsAir() then
-				LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Performing inspection.")
-				_self:inspect()
 			else
 				LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Unknown category.")
 			end			
@@ -286,7 +300,7 @@ function FMS.IED:_setupEvents()
 		LOG:Log("iedGroup ".._self.name.." onEventDead()")
 		if EventData.IniGroup == _self.iedGroup then
 			if not EventData.IniGroup:IsAlive() then
-				LOG:Log("GROUP DEAD: " .. iedGroup:GetName())
+				LOG:Log("GROUP DEAD: " .. _self.iedGroup:GetName())
 				-- explode() -- At this point, we can't get the group's coordinate.
 				_self:cleanup()
 			end
@@ -301,22 +315,36 @@ end
 function FMS.IED:inspect(iedChance_)
 	LOG:Log("Calling IED.INSPECT for "..self.name)
 
+	local yellow = {1,1,0}
+	self.triggerZone:DrawZone(nil, yellow, 1.0, yellow, 0.3, 5)
 	self:radioMessage("Close inspection of suspected IED initiated.")
 
 	local roll = math.random()
 	if roll <= (iedChance_ or 0.5) then
 		local observationDelay = math.random(10,30)
-		TIMER:New(function()
-			self:radioMessage("Explosives detected! Clear the area!")
-			TIMER:New(explode):Start(10)
-		end):Start(observationDelay)
+		TIMER:New(FMS.IED.threatDetected, self):Start(observationDelay)
 	else
-		TIMER:New(function()
-			self:radioMessage("No threats observed.")
-			cleanup()
-		end):Start(30)
+		TIMER:New(FMS.IED.noThreat, self):Start(30)
 	end
 	
+end
+
+function FMS.IED:threatDetected()
+	local red = {1,0,0}
+	self.triggerZone:UndrawZone()
+	self.triggerZone:DrawZone(nil, red, 1.0, red, 0.5, 6)
+	self:radioMessage("Explosives detected! Clear the area!")
+	TIMER:New(FMS.IED.explode, self):Start(10)
+end
+
+function FMS.IED:noThreat()
+	self:radioMessage("No threats observed.")
+
+	local green = {0,1,0}
+	self.triggerZone:UndrawZone()
+	self.triggerZone:DrawZone(nil, green, 1.0, green, 0.3, 1)
+	
+	self:cleanup()
 end
 
 function FMS.IED:explode(power_)
@@ -327,7 +355,6 @@ function FMS.IED:explode(power_)
 	if coord then
 		coord:Explosion(power)
 		FMS.PrettyExplosion(coord)
-		self:radioMessage("... freakin' hit!...MSR...need CASEVAC...")
 	end
 
 	self:cleanup()
