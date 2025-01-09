@@ -45,6 +45,14 @@ end
 function FMS.Convoy:setCoords(start, destination)
 	self.startCoord = start
 	self.endCoord = destination
+	local radius = 50
+	self.endZone = ZONE_RADIUS:New(self.missionName.."_goalzone", destination:GetVec2(), radius)
+end
+
+function FMS.Convoy:setZones(startZone, endZone)
+	self.startCoord = startZone:GetCoordinate()
+	self.endCoord = endZone:GetCoordinate()
+	self.endZone = endZone
 end
 
 function FMS.Convoy:spawn(startNow_)
@@ -63,7 +71,14 @@ function FMS.Convoy:spawn(startNow_)
 			self:setupControlMenus()
 		end
 
-		local cnvy = self
+		local _self = self
+
+		self.endZone:SetCheckTime(30)
+		self.endZone:Trigger(grp)
+		function _self.endZone:OnAfterEnteredZone(from, event, to, group)
+			-- TODO: is group == grp
+			_self:success()
+		end	
 
 		grp:HandleEvent(EVENTS.Dead)
 
@@ -73,7 +88,7 @@ function FMS.Convoy:spawn(startNow_)
 				if not EventData.IniGroup:IsAlive() then
 					LOG:Log("CONVOY GROUP DEAD: " .. EventData.IniGroup:GetName())
 					grp:UnHandleEvent(EVENTS.Dead)
-					cnvy:failure()
+					_self:failure()
 				end
 			end
 		end
@@ -103,8 +118,10 @@ end
 
 
 function FMS.Convoy:_start(spawnedGroup)
-	spawnedGroup:RouteGroundOnRoad(self.endCoord, nil, nil, AI.Task.VehicleFormation.ON_ROAD, FMS.Convoy.WaypointFunction)
+	spawnedGroup:RouteGroundOnRoad(self.endCoord, nil, nil, AI.Task.VehicleFormation.ON_ROAD, FMS.Convoy.WaypointFunction, {self})
 	
+	self.endZone:DrawZone()
+
 	local msg = "Convoy '"..self.missionName.."' rolling."
 	MESSAGE:New(msg, 30):ToAll()
 
@@ -122,11 +139,11 @@ function FMS.Convoy:showPosition(spawnedGroup)
 	MESSAGE:New("["..self.missionName.." Conovy] Our position is: "..str, 30):ToAll()
 end
 
-function FMS.Convoy.WaypointFunction(controllable, wptIndex, wptCount)
+function FMS.Convoy.WaypointFunction(controllable, wptIndex, wptCount, convoy)
 	LOG:Log("Convoy group "..controllable:GetName().." passing waypoint "..tostring(wptIndex).." of "..tostring(wptCount))
-	if wptIndex >= wptCount then
-		LOG:Log("Convoy group "..controllable:GetName().." has reached its destination.")
-	end
+	-- if wptIndex >= wptCount and convoy then
+	-- 	convoy:success()
+	-- end
 end
 
 function FMS.Convoy:success()
@@ -134,7 +151,9 @@ function FMS.Convoy:success()
 	MESSAGE:New(msg, 30):ToAll()
 	LOG:Log(msg)
 
-	self:resetMenus()
+	self:cleanup()
+
+	FMS.CallHandler(self._onSuccessHandler, self)
 end
 
 function FMS.Convoy:failure()
@@ -142,7 +161,24 @@ function FMS.Convoy:failure()
 	MESSAGE:New(msg, 30):ToAll()
 	LOG:Log(msg)
 
+	self:cleanup()
+
+	FMS.CallHandler(self._onFailureHandler, self)	
+end
+
+function FMS.Convoy:cleanup()
+	-- TODO: Despawn group?
 	self:resetMenus()
+	self.endZone:__TriggerStop(5)
+	self.endZone:UndrawZone()
+end
+
+function FMS.Convoy:onSuccess(handler)
+	self._onSuccessHandler = handler
+end
+
+function FMS.Convoy:onFailure(handler)
+	self._onFailureHandler = handler
 end
 
 function FMS.ConvoyHandlerAdapter(sender, handler_, ...)
