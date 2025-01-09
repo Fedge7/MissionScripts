@@ -167,76 +167,138 @@ function GROUP:routeToZone(zone, handler_)
 end
 
 
-FMS.Convoy.IEDTriggeringGroups = SET_GROUP:New()
-		:FilterCoalitions("blue")
-		:FilterAlive()
-		:FilterCategories("ground","helicopter")
-		:FilterStart()
 
-function FMS.Convoy.MakeIED(iedGroup, radius_)
+
+
+
+
+FMS.IED = {
+	TriggeringGroups = nil,
+	Count = 1
+}
+FMS.IED.__index = FMS.IED
+
+function FMS.IED.NewSpawnInZones(iedGroupNames, iedZones)
+	local alias = "ied_"..tostring(FMS.IED.Count)
+	FMS.IED.Count=FMS.IED.Count+1
+	return SPAWN:NewWithAlias(iedGroupNames[1], alias)
+		:InitRandomizeTemplate(iedGroupNames)
+		:InitRandomizeZones(iedZones)
+		:InitHeading(0,359)
+		:OnSpawnGroup(function(iedGroup) FMS.IED:New(iedGroup) end)
+end
+
+function FMS.IED:New(iedGroup, radius_)
+
+	if not FMS.IED.TriggeringGroups then
+		FMS.IED.TriggeringGroups = SET_GROUP:New()
+			:FilterCoalitions("blue")
+			:FilterAlive()
+			-- :FilterCategories("ground","helicopter")
+			:FilterStart()
+	end
+
+	local obj = {}
+	setmetatable(obj, self)
+	obj:_init(iedGroup, radius_)
+	return obj
+end
+
+function FMS.IED:_init(iedGroup, radius_)
 	if not iedGroup then return end
 
 	LOG:Log("Setting up IED group: "..iedGroup:GetName())
 
-	local name = iedGroup:GetName()
-	local zoneName = name.."-"..tostring(math.random(1000,9999))
-	local triggerZone = ZONE_GROUP:New(zoneName, iedGroup, (radius_ or 30))
-	triggerZone:Trigger(FMS.Convoy.IEDTriggeringGroups)
+	self.iedGroup = iedGroup
+	self.name = iedGroup:GetName()
+	self.radius = radius_ or 30
 
-	local function cleanup()
-		LOG:Log("Calling cleanup for IED:"..name)
-		triggerZone:__TriggerStop(1)
-		iedGroup:UnHandleEvent(EVENTS.Dead)
-	end
+	self.zoneName = self.name.."-"..tostring(math.random(1000,9999))
+	self.triggerZone = ZONE_GROUP:New(self.zoneName, self.iedGroup, self.radius)
+	self.triggerZone:Trigger(FMS.IED.TriggeringGroups)
+	
+	self:_setupEvents()
+end
 
-	local function explode(power_)
-		local power = power_ or math.random(500,1000)
-		LOG:Log("Calling explode for "..name.." with power "..tostring(power))
+function FMS.IED:_setupEvents()
 
-		local coord = iedGroup:GetCoordinate()
-		if coord then
-			coord:Explosion(power)
-			FMS.PrettyExplosion(coord)
-		end
-
-		cleanup()
-	end
-
-	function triggerZone:OnAfterEnteredZone(from, event, to, group)
-		if iedGroup:IsAlive() then
-			local delay = math.random(1,15)
-			LOG:Log("Target group "..group:GetName().." has entered IED zone "..zoneName..". Triggering explosion in "..tostring(delay).." seconds.")
-			TIMER:New(explode):Start(delay)
+	local _self = self
+	function _self.triggerZone:OnAfterEnteredZone(from, event, to, group)
+		LOG:Log("Something entered trigger zone")
+		if _self.iedGroup:IsAlive() then
+			local gname = group:GetName()
+			local zname = _self.zoneName
+			if group:IsGround() then
+				local delay = math.random(1,15)
+				LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Triggering explosion in "..tostring(delay).." seconds.")
+				TIMER:New(FMS.IED.explode, _self):Start(delay)
+			elseif group:IsAir() then
+				LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Performing inspection.")
+				_self:inspect()
+			else
+				LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Unknown category.")
+			end			
 		-- else
 		-- 	LOG:Log("Target group has entered an inactive IED zone. Supressing explosion.")
-		-- 	cleanup()
+		-- 	_self:cleanup()
 		end
 	end
 
-	iedGroup:HandleEvent(EVENTS.Dead)
+	_self.iedGroup:HandleEvent(EVENTS.Dead)
 
-	function iedGroup:OnEventDead( EventData )
-		LOG:Log("iedGroup "..name.." onEventDead()")
-		if EventData.IniGroup == iedGroup then
+	function _self.iedGroup:OnEventDead( EventData )
+		LOG:Log("iedGroup ".._self.name.." onEventDead()")
+		if EventData.IniGroup == _self.iedGroup then
 			if not EventData.IniGroup:IsAlive() then
 				LOG:Log("GROUP DEAD: " .. iedGroup:GetName())
 				-- explode() -- At this point, we can't get the group's coordinate.
-				cleanup()
+				_self:cleanup()
 			end
 		end
 	end
-
 end
 
-function FMS.Convoy.MakeIEDSpawnerInZones(iedGroupNames, iedZones, iedChance_)
-	return SPAWN:New(iedGroupNames[1])
-		:InitRandomizeTemplate(iedGroupNames)
-		:InitRandomizeZones(iedZones)
-		:InitHeading(0,359)
-		:OnSpawnGroup(function(iedGroup)
-			local roll = math.random()
-			if roll <= (iedChance_ or 1.0) then
-				FMS.Convoy.MakeIED(iedGroup)
-			end
-		end)
+function FMS.IED:radioMessage(txt, sound)
+	MESSAGE:New(txt, 30):ToAll()
+end
+
+function FMS.IED:inspect(iedChance_)
+	LOG:Log("Calling IED.INSPECT for "..self.name)
+
+	self:radioMessage("Close inspection of suspected IED initiated.")
+
+	local roll = math.random()
+	if roll <= (iedChance_ or 0.5) then
+		local observationDelay = math.random(10,30)
+		TIMER:New(function()
+			self:radioMessage("Explosives detected! Clear the area!")
+			TIMER:New(explode):Start(10)
+		end):Start(observationDelay)
+	else
+		TIMER:New(function()
+			self:radioMessage("No threats observed.")
+			cleanup()
+		end):Start(30)
+	end
+	
+end
+
+function FMS.IED:explode(power_)
+	local power = power_ or math.random(500,1000)
+	LOG:Log("Calling IED.EXPLODE for "..self.name.." with power "..tostring(power))
+
+	local coord = self.iedGroup:GetCoordinate()
+	if coord then
+		coord:Explosion(power)
+		FMS.PrettyExplosion(coord)
+		self:radioMessage("... freakin' hit!...MSR...need CASEVAC...")
+	end
+
+	self:cleanup()
+end
+
+function FMS.IED:cleanup()
+	LOG:Log("Calling IED.CLEANUP for "..self.name)
+	self.triggerZone:__TriggerStop(1)
+	self.iedGroup:UnHandleEvent(EVENTS.Dead)
 end
