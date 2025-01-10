@@ -72,7 +72,7 @@ function FMS.Convoy:spawn(startNow_)
 
 		if self.showInMenu then
 			self.menuSpawn:Remove()
-			self:setupControlMenus()
+			self:setupControlMenusForGroup(grp)
 		end
 
 		local _self = self
@@ -112,7 +112,7 @@ function FMS.Convoy:spawn(startNow_)
 	end
 end
 
-function FMS.Convoy:setupControlMenus()
+function FMS.Convoy:setupControlMenusForGroup(grp)
 	self.menuHold = MENU_MISSION_COMMAND:New("Hold", self.menu, CONTROLLABLE.RouteStop, grp)
 	self.menuResume = MENU_MISSION_COMMAND:New("Resume", self.menu, CONTROLLABLE.RouteResume, grp)
 	self.menuHoldFire = MENU_MISSION_COMMAND:New("ROE Hold", self.menu, CONTROLLABLE.OptionROEHoldFire, grp)
@@ -275,10 +275,15 @@ function FMS.IED:_setupEvents()
 	local _self = self
 	function _self.triggerZone:OnAfterEnteredZone(from, event, to, group)
 		LOG:Log("Something entered trigger zone ".._self.zoneName)
+
 		if _self.iedGroup:IsAlive() then
 			local gname = group:GetName()
 			local zname = _self.zoneName
-			if group:IsAir() or group:IsPlayer() then
+			
+			local closeElevation = math.abs(_self.iedGroup:GetHeight() - group:GetHeight()) < 50
+			local canInspect = group:IsAir() or group:IsPlayer()
+
+			if closeElevation and canInspect then
 				LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Performing inspection.")
 				_self:inspect()
 			elseif group:IsGround() then
