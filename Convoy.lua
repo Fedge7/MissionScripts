@@ -310,6 +310,7 @@ end
 
 function FMS.IED:radioMessage(txt, sound)
 	MESSAGE:New(txt, 30):ToAll()
+	USERSOUND:New(sound):ToAll()
 end
 
 function FMS.IED:inspect(iedChance_)
@@ -317,7 +318,7 @@ function FMS.IED:inspect(iedChance_)
 
 	local yellow = {1,1,0}
 	self.triggerZone:DrawZone(nil, yellow, 1.0, yellow, 0.3, 5)
-	self:radioMessage("Close inspection of suspected IED initiated.")
+	self:radioMessage("Close inspection of suspected IED initiated.", "ied_inspect.ogg")
 
 	local roll = math.random()
 	if roll <= (iedChance_ or 0.5) then
@@ -333,12 +334,12 @@ function FMS.IED:threatDetected()
 	local red = {1,0,0}
 	self.triggerZone:UndrawZone()
 	self.triggerZone:DrawZone(nil, red, 1.0, red, 0.5, 6)
-	self:radioMessage("Explosives detected! Clear the area!")
+	self:radioMessage("IED Confirmed! Get the hell outta here!", "ied_confirmed.ogg")
 	TIMER:New(FMS.IED.explode, self):Start(10)
 end
 
 function FMS.IED:noThreat()
-	self:radioMessage("No threats observed.")
+	self:radioMessage("Area's clear. Continue Mission.", "ied_area_clear.ogg")
 
 	local green = {0,1,0}
 	self.triggerZone:UndrawZone()
