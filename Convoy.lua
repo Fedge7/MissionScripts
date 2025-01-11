@@ -228,17 +228,17 @@ FMS.IED = {
 }
 FMS.IED.__index = FMS.IED
 
-function FMS.IED.NewSpawnInZones(iedGroupNames, iedZones)
+function FMS.IED.NewSpawnInZones(iedGroupNames, iedZones, chance_)
 	local alias = "ied_"..tostring(FMS.IED.Count)
 	FMS.IED.Count=FMS.IED.Count+1
 	return SPAWN:NewWithAlias(iedGroupNames[1], alias)
 		:InitRandomizeTemplate(iedGroupNames)
 		:InitRandomizeZones(iedZones)
 		:InitHeading(0,359)
-		:OnSpawnGroup(function(iedGroup) FMS.IED:New(iedGroup) end)
+		:OnSpawnGroup(function(iedGroup) FMS.IED:New(iedGroup, nil, chance_) end)
 end
 
-function FMS.IED:New(iedGroup, radius_)
+function FMS.IED:New(iedGroup, radius_, chance_)
 
 	if not FMS.IED.TriggeringGroups then
 		FMS.IED.TriggeringGroups = SET_GROUP:New()
@@ -250,23 +250,26 @@ function FMS.IED:New(iedGroup, radius_)
 
 	local obj = {}
 	setmetatable(obj, self)
-	obj:_init(iedGroup, radius_)
+	obj:_init(iedGroup, radius_, chance_)
 	return obj
 end
 
-function FMS.IED:_init(iedGroup, radius_)
+function FMS.IED:_init(iedGroup, radius_, chance_)
 	if not iedGroup then return end
-
-	LOG:Log("Setting up IED group: "..iedGroup:GetName())
 
 	self.iedGroup = iedGroup
 	self.name = iedGroup:GetName()
 	self.radius = radius_ or 30
+	self.armed = math.random() <= (chance_ or 0.5)
 
 	self.zoneName = self.name.."-"..tostring(math.random(1000,9999))
 	self.triggerZone = ZONE_GROUP:New(self.zoneName, self.iedGroup, self.radius)
 	self.triggerZone:Trigger(FMS.IED.TriggeringGroups)
 	
+	local armStatus = self.armed and "ARMED" or "safed"
+	local mgrsCoord = self.triggerZone:GetCoordinate():ToStringMGRS()
+	LOG:Log("IED group '"..iedGroup:GetName().."'  "..mgrsCoord.."  "..armStatus.."  "..iedGroup:GetTypeName())
+
 	self:_setupEvents()
 end
 
@@ -287,9 +290,13 @@ function FMS.IED:_setupEvents()
 				LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Performing inspection.")
 				_self:inspect()
 			elseif group:IsGround() then
-				local delay = math.random(1,15)
-				LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Triggering explosion in "..tostring(delay).." seconds.")
-				TIMER:New(FMS.IED.explode, _self):Start(delay)
+				if _self.armed then
+					local delay = math.random(1,15)
+					LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Triggering explosion in "..tostring(delay).." seconds.")
+					TIMER:New(FMS.IED.explode, _self):Start(delay)
+				else
+					LOG:Log("Target group "..gname.." has entered an uninspected, unarmed IED zone: "..zname..".")	
+				end
 			else
 				LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Unknown category.")
 			end			
@@ -311,11 +318,25 @@ function FMS.IED:_setupEvents()
 			end
 		end
 	end
+
+	_self.iedGroup:HandleEvent(EVENTS.Hit)
+
+	function _self.iedGroup:OnEventHit( EventData )
+		LOG:Log("iedGroup "..EventData.IniGroup:GetName().." onEventHit()")
+		if _self.armed then
+			_self:explode()
+		else
+			_self:radioMessage("CEASE FIRE! You've engaged a non-hostile!")
+			_self.iedGroup:UnHandleEvent(EVENTS.Hit)
+		end
+	end
 end
 
 function FMS.IED:radioMessage(txt, sound)
 	MESSAGE:New(txt, 30):ToAll()
-	USERSOUND:New(sound):ToAll()
+	if sound then
+		USERSOUND:New(sound):ToAll()
+	end
 end
 
 function FMS.IED:inspect(iedChance_)
@@ -325,12 +346,12 @@ function FMS.IED:inspect(iedChance_)
 	self.triggerZone:DrawZone(nil, yellow, 1.0, yellow, 0.3, 5)
 	self:radioMessage("Close inspection of suspected IED initiated.", "ied_inspect.ogg")
 
-	local roll = math.random()
-	if roll <= (iedChance_ or 0.5) then
-		local observationDelay = math.random(10,30)
+	local maximumInspectionTime = 30
+	if self.armed then
+		local observationDelay = math.random(5, maximumInspectionTime)
 		TIMER:New(FMS.IED.threatDetected, self):Start(observationDelay)
 	else
-		TIMER:New(FMS.IED.noThreat, self):Start(30)
+		TIMER:New(FMS.IED.noThreat, self):Start(maximumInspectionTime)
 	end
 	
 end
@@ -339,8 +360,10 @@ function FMS.IED:threatDetected()
 	local red = {1,0,0}
 	self.triggerZone:UndrawZone()
 	self.triggerZone:DrawZone(nil, red, 1.0, red, 0.5, 6)
+
+	local explDelay = math.random(2,10)
 	self:radioMessage("IED Confirmed! Get the hell outta here!", "ied_confirmed.ogg")
-	TIMER:New(FMS.IED.explode, self):Start(10)
+	TIMER:New(FMS.IED.explode, self):Start(explDelay)
 end
 
 function FMS.IED:noThreat()
@@ -370,4 +393,5 @@ function FMS.IED:cleanup()
 	LOG:Log("Calling IED.CLEANUP for "..self.name)
 	self.triggerZone:__TriggerStop(1)
 	self.iedGroup:UnHandleEvent(EVENTS.Dead)
+	self.iedGroup:UnHandleEvent(EVENTS.Hit)
 end
