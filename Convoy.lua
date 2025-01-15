@@ -326,7 +326,7 @@ function FMS.IED:_setupEvents()
 		if _self.armed then
 			_self:explode()
 		else
-			_self:radioMessage("CEASE FIRE! You've engaged a non-hostile!")
+			-- _self:radioMessage("CEASE FIRE! You've engaged a non-hostile!")
 			_self.iedGroup:UnHandleEvent(EVENTS.Hit)
 		end
 	end
@@ -339,7 +339,7 @@ function FMS.IED:radioMessage(txt, sound)
 	end
 end
 
-function FMS.IED:inspect(iedChance_)
+function FMS.IED:inspect()
 	LOG:Log("Calling IED.INSPECT for "..self.name)
 
 	local yellow = {1,1,0}
@@ -348,12 +348,23 @@ function FMS.IED:inspect(iedChance_)
 
 	local maximumInspectionTime = 30
 	if self.armed then
-		local observationDelay = math.random(5, maximumInspectionTime)
-		TIMER:New(FMS.IED.threatDetected, self):Start(observationDelay)
+		self:inspectArmed()
 	else
 		TIMER:New(FMS.IED.noThreat, self):Start(maximumInspectionTime)
 	end
 	
+end
+
+function FMS.IED:inspectArmed()
+	-- local observeChance = 0.5
+	-- local canObserve = math.random() <= observeChance
+	-- if canObserve then
+		local observationDelay = math.random(5, maximumInspectionTime)
+		TIMER:New(FMS.IED.threatDetected, self):Start(observationDelay)
+	-- else
+	-- 	local maximumInspectionTime = 30
+	-- 	TIMER:New(FMS.IED.threatUndetermined, self):Start(maximumInspectionTime)
+	-- end
 end
 
 function FMS.IED:threatDetected()
@@ -364,6 +375,10 @@ function FMS.IED:threatDetected()
 	local explDelay = math.random(2,10)
 	self:radioMessage("IED Confirmed! Get the hell outta here!", "ied_confirmed.ogg")
 	TIMER:New(FMS.IED.explode, self):Start(explDelay)
+end
+
+function FMS.IED:threatUndetermined()
+	self:radioMessage("Unable to determine IED threat. Use extreme caution.")
 end
 
 function FMS.IED:noThreat()
@@ -377,7 +392,7 @@ function FMS.IED:noThreat()
 end
 
 function FMS.IED:explode(power_)
-	local power = power_ or math.random(500,1000)
+	local power = power_ or math.random(100,600)
 	LOG:Log("Calling IED.EXPLODE for "..self.name.." with power "..tostring(power))
 
 	local coord = self.iedGroup:GetCoordinate()
