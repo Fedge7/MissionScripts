@@ -168,6 +168,12 @@ function CTLD:AddFARPCrates(menuName, farpGroupTemplateName, crateCount_, perCra
 	self:logINF("Added FARP crates '" .. farpGroupTemplateName .. "'")
 end
 
+function CTLD:AddStandardFARPCrates()
+	FMS.DBSpawn(FMS.HeloOps.Hummer, country.id.USA, Group.Category.GROUND)
+	self:AddFARPCrates("Standard FARP", FMS.HeloOps.Hummer.name, 2, 1500)
+	self:ConfigureFARP(FMS.HeloOps.Hummer.name)
+end
+
 --- Automatically scans the mission for logistics zones.
 -- Zone name prefixes are "Loadzone" and "Movezone"
 function CTLD:ScanForZones()
@@ -406,11 +412,12 @@ function FMS.HeloOps.NewCSAR(coalitionSide_, alias_, prefixes_, downedPilotGroup
 	
 	local _coalition = coalitionSide_ or coalition.side.BLUE
 	local _alias = alias_ or "CSAR Corps"
-	local _downedPilotGroupTemplateName = downedPilotGroupTemplateName_ or "Downed Pilot"
+	local _downedPilotGroupTemplateName = downedPilotGroupTemplateName_
 	
 	if not GROUP:FindByName(_downedPilotGroupTemplateName) then
-		env.warning(logPrefix .. "|CSAR: cannot initialize CSAR. No group template called \"" .. _downedPilotGroupTemplateName .. "\" found in mission.")
-		return
+		env.info(logPrefix .. "|CSAR: No downed pilot template called \"" .. (_downedPilotGroupTemplateName or "nil") .. "\" found in mission. Using default template.")
+		FMS.DBSpawn(FMS.HeloOps.DownedPilotTemplate, country.id.USA, Group.Category.GROUND)
+		_downedPilotGroupTemplateName = FMS.HeloOps.DownedPilotTemplate.name
 	end
 	
 	local _csar_instance = CSAR:New(_coalition, _downedPilotGroupTemplateName, _alias)
@@ -446,14 +453,6 @@ function FMS.HeloOps.NewCSAR(coalitionSide_, alias_, prefixes_, downedPilotGroup
 		
 	return _csar_instance
 end
-
-FMS.HeloOps.randomNames = {
-	"Pete Mitchell", "Tom Kazansky", "Nick Bradshaw", "Mike Metcalf", "Marcus Williams", "Tom Jardian", "Rick Hieatherly", "Ron Kerner", "Rick Neven", "Bill Cortell", "Henry Ruth", "Sam Wells",
-	"Beau Simpson", "Jake Seresin", "Chester Cain", "Robert Floyd", "Solomon Bates", "Bernie Coleman", "Reuben Fitch", "Mickey Garcia",
-	"Jake Preston", "Brad Little",
-	"Charles Sinclair", "Doug Masters",
-	"Ted Striker", "Clarence Oveur"
-}
 
 function CSAR:SpawnDownedPilotInZone(zoneName, pilotName_)
 	local _name = pilotName_
@@ -610,3 +609,51 @@ function FMS.HeloOps.FixFARP(farpName)
 	TIMER:New(function() check(wh)            end):Start(5)
 	TIMER:New(function() MESSAGE:New(farpName.."' has been supplied."):ToAll() end):Start(6)
 end
+
+
+FMS.HeloOps.randomNames = {
+	"Pete Mitchell", "Tom Kazansky", "Nick Bradshaw", "Mike Metcalf", "Marcus Williams", "Tom Jardian", "Rick Hieatherly", "Ron Kerner", "Rick Neven", "Bill Cortell", "Henry Ruth", "Sam Wells",
+	"Beau Simpson", "Jake Seresin", "Chester Cain", "Robert Floyd", "Solomon Bates", "Bernie Coleman", "Reuben Fitch", "Mickey Garcia",
+	"Jake Preston", "Brad Little",
+	"Charles Sinclair", "Doug Masters",
+	"Ted Striker", "Clarence Oveur"
+}
+
+FMS.HeloOps.DownedPilotTemplate = {
+	lateActivation = true,
+	tasks = {},
+	uncontrollable = false,
+	task = "Ground Nothing",
+	hiddenOnMFD = true,
+	hidden = false,
+	units = {
+		[1] = {
+			name = "Downed Pilot",
+			type = "Soldier M4 GRG",
+			x=0, y=0,	
+		},
+	},
+	x=0, y=0,
+	name = "Downed Pilot",
+	hiddenOnPlanner = true
+}
+
+FMS.HeloOps.Hummer = {
+	lateActivation = true,
+	tasks = {},
+	uncontrollable = false,
+	task = "Ground Nothing",
+	hiddenOnMFD = true,
+	hidden = false,
+	units = {
+		[1] = {
+			name = "FMS Hummer",
+			type = "Hummer",
+			livery_id = "desert",
+			x=0, y=0,
+		},
+	},
+	x=0, y=0,
+	name = "FMS Hummer",
+	hiddenOnPlanner = true
+}
