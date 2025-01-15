@@ -107,6 +107,16 @@ end
 -- TABLE FUNCTIONS
 -------------------------------------------------------------------------------
 
+--- Registers the specified group template into the MOOSE database.
+function FMS.DBSpawn(template, countryId, categoryId)
+	-- The DATABASE:Spawn() method requires the group table to have the following 2 properties defined
+	template.CountryID = countryId
+	template.CategoryID = categoryId
+	local grp = _DATABASE:Spawn(template)
+	_debug("_DATABASE:Spawn() '"..grp:GetName().."'  [id_ = "..grp:GetDCSObject()["id_"].."]")
+	return grp
+end
+
 --- Registers the contents of the specified stmTable in the MOOSE database
 function FMS.RegisterSTMTable( stmTable, groupHandler_, staticHandler_, lateActivation_ )
 	_debug("RegisterSTMTable(lateActivation_="..tostring(lateActivation_)..")")
@@ -118,7 +128,6 @@ function FMS.RegisterSTMTable( stmTable, groupHandler_, staticHandler_, lateActi
 
 	FMS._TraverseSTMTable(stmTable,
 		function(vehicleGroupTable, category, coalitionId, countryId)
-			-- TODO: Do we need to reset the groupId or unitId here?
 
 			-- NOTE: NewTemplate() doesn't actually produce a useable DCS Group object.
 			--       It only makes a MOOSE GROUP object. For the purposes of spawning in groups,
@@ -126,10 +135,6 @@ function FMS.RegisterSTMTable( stmTable, groupHandler_, staticHandler_, lateActi
 			--       _DATABASE:Spawn() so that the group is actually realized within the DCS runtime.
 			-- GROUP:NewTemplate(vehicleGroupTable, coalitionId, category, countryId)
 			
-			-- The DATABASE:Spawn() method requires the group table to have the following 2 properties defined
-			vehicleGroupTable.CountryID = countryId
-			vehicleGroupTable.CategoryID = category
-
 			if lateActivation_ ~= nil then
 				-- Setting `.lateActivation` to false will immediately spawn the group in upon the _DATABASE:Spawn() call.
 				-- A value of true will set the unit as late activated, as if the checkbox was checked in the ME.
@@ -137,14 +142,14 @@ function FMS.RegisterSTMTable( stmTable, groupHandler_, staticHandler_, lateActi
 				_trace("RegisterSTMTable() -- setting lateActivation to " .. tostring(lateActivation_))
 			end
 
+			-- TODO: Can we nil out the groupId and unitID here? UPDATE: Yes!
 			-- We have to set a new groupId here because the id in the STM file may collide with with ids present in the actual mission/miz file
-			vehicleGroupTable.groupId = FMS.GetUniqueStaticID()
+			vehicleGroupTable.groupId = nil --FMS.GetUniqueStaticID()
 			for i, unit in pairs(vehicleGroupTable.units) do
-				unit.unitId = FMS.GetUniqueStaticID()
+				unit.unitId = nil --FMS.GetUniqueStaticID()
 			end
 
-			local grp = _DATABASE:Spawn(vehicleGroupTable)
-			_debug("_DATABASE:Spawn() '"..grp:GetName().."'  [id_ = "..grp:GetDCSObject()["id_"].."]")
+			FMS.DBSpawn(vehicleGroupTable, countryId, category)
 			FMS.CallHandler(groupHandler_, vehicleGroupTable, category, coalitionId, countryId)
 		end,
 
