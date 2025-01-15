@@ -332,7 +332,7 @@ function FMS._UsingLoadedSTMFile( absolutePath, handler )
 	staticTemplate = nil
 end
 
-FMS.STATIC_ID = 1000000
+FMS.STATIC_ID = 2000000
 function FMS.GetUniqueStaticID()
 	FMS.STATIC_ID = FMS.STATIC_ID + 1
 	return FMS.STATIC_ID
