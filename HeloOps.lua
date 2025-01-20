@@ -552,25 +552,7 @@ end
 
 function FMS.HeloOps.FixFARP(farpName)
 	FMS.HeloOps.Log.info("FixFARP("..farpName..")")
-	function set_liquids(wh, tons)
-		local kgs = (tons or 100) * 1000
-		FMS.HeloOps.Log.info("  - FARP set_liquids("..farpName..", "..tostring(kgs).." kgs)")
-		wh:SetLiquid(STORAGE.Liquid.DIESEL, kgs) -- kgs to tons
-		wh:SetLiquid(STORAGE.Liquid.GASOLINE, kgs)
-		wh:SetLiquid(STORAGE.Liquid.JETFUEL, kgs)
-		wh:SetLiquid(STORAGE.Liquid.MW50, kgs)
-	end
-	function set_items(wh, count)
-		local count = count or 100
-		FMS.HeloOps.Log.info("  - FARP set_items("..farpName..", "..tostring(count).." qty)")
-		for cat,nitem in pairs(ENUMS.Storage.weapons) do
-			-- FMS.HeloOps.Log.info("    - cat: "..cat)
-			for name,item in pairs(nitem) do
-				-- FMS.HeloOps.Log.info("      - name: "..name)
-				wh:SetItem(item, count)
-			end
-		end
-	end
+
 	function check(wh)
 		local ac, liqs, items = wh:GetInventory()
 		for _, liq in pairs(liqs) do
@@ -602,14 +584,48 @@ function FMS.HeloOps.FixFARP(farpName)
 	
 	local wh = ab:GetStorage()
 
-	TIMER:New(function() set_liquids(wh, 0)   end):Start(1)
-	TIMER:New(function() set_items(wh, 0)     end):Start(2)
-	TIMER:New(function() set_liquids(wh, 100) end):Start(3)
-	TIMER:New(function() set_items(wh, 500)   end):Start(4)
+	TIMER:New(function() _SetFARPLiquids(wh, 0)   end):Start(1)
+	TIMER:New(function() _SetFARPItems(wh, 0)     end):Start(2)
+	TIMER:New(function() _SetFARPLiquids(wh, 100) end):Start(3)
+	TIMER:New(function() _SetFARPItems(wh, 500)   end):Start(4)
 	TIMER:New(function() check(wh)            end):Start(5)
 	TIMER:New(function() MESSAGE:New(farpName.."' has been supplied."):ToAll() end):Start(6)
 end
 
+function FMS.HeloOps.FillFARP(farpName)
+	local ab = AIRBASE:FindByName(farpName)
+	if ab == nil then
+		FMS.HeloOps.Log.error("FixFARP: Cannot find airbase named '"..farpName.."'.")
+		return
+	end
+	
+	local wh = ab:GetStorage()
+	FMS.HeloOps._SetFARPLiquids(wh, 100)
+	FMS.HeloOps._SetFARPItems(wh, 1000)
+
+	FMS.HeloOps.Log.info("FillFARP: FARP '"..farpName.."' has been supplied.")
+end
+
+function FMS.HeloOps._SetFARPLiquids(wh, tons)
+	local kgs = (tons or 100) * 1000
+	-- FMS.HeloOps.Log.info("  - FARP set_liquids("..farpName..", "..tostring(kgs).." kgs)")
+	wh:SetLiquid(STORAGE.Liquid.DIESEL, kgs) -- kgs to tons
+	wh:SetLiquid(STORAGE.Liquid.GASOLINE, kgs)
+	wh:SetLiquid(STORAGE.Liquid.JETFUEL, kgs)
+	wh:SetLiquid(STORAGE.Liquid.MW50, kgs)
+end
+
+function FMS.HeloOps._SetFARPItems(wh, count)
+	local count = count or 100
+	-- FMS.HeloOps.Log.info("  - FARP set_items("..farpName..", "..tostring(count).." qty)")
+	for cat,nitem in pairs(ENUMS.Storage.weapons) do
+		-- FMS.HeloOps.Log.info("    - cat: "..cat)
+		for name,item in pairs(nitem) do
+			-- FMS.HeloOps.Log.info("      - name: "..name)
+			wh:SetItem(item, count)
+		end
+	end
+end
 
 FMS.HeloOps.randomNames = {
 	"Pete Mitchell", "Tom Kazansky", "Nick Bradshaw", "Mike Metcalf", "Marcus Williams", "Tom Jardian", "Rick Hieatherly", "Ron Kerner", "Rick Neven", "Bill Cortell", "Henry Ruth", "Sam Wells",
