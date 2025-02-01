@@ -5,6 +5,12 @@ Author: Fedge
 Description:
 	This script allows a mission designer to quickly setup a CTLD and CSAR instance.
 
+Dependencies:
+	- MOOSE
+	For STM functions:
+	- FMS.Utilities
+	- FMS.StaticTemplates
+
 Modifications:
 	- v0.1    Fedge            Port of Fedge's original script.
 	- v0.3    Fedge            Added FARP building functionality to CTLD.
@@ -13,12 +19,13 @@ Modifications:
 	- v0.6    Fedge            Adds support for loading standard troops/vehicles via STM file.
 	- v0.7    Fedge            Adds support for CTLD:onTroopsDeployed() function for easier callbacks
 	- v1.0    Fedge            Cleanup.
+	- v2.0    Fedge            Combines HeloOps and HeloOpsConfig scripts.
 
 TODO:
 	- CSAR random missions
 ]]
 
-local version = "v1.0"
+local version = "v2.0"
 local logPrefix = "FMS.HeloOps"
 
 env.info("FMS.HeloOps " .. version .. " loading.")
@@ -32,7 +39,8 @@ FMS.HeloOps = {
 		MissingTroops = 0,    -- count of troop templates that weren't found in the mission
 		MissingVehicles = 0,  -- count of vehicle templates that weren't found in the mission
 		MissingCrates = 0,    -- count of crate static templates that weren't found in the mission
-		MissingFARP = 0   -- indicates the group template used to spawn the FARP wasn't found in the mission
+		MissingFARP = 0,      -- indicates the group template used to spawn the FARP wasn't found in the mission
+		InitFailure = false,  -- indicates some error occured while initializing CTLD
 	},
 
 	-- Utility logging functions. Call `FMS.HeloOps.Log.info/warning/error`
@@ -82,7 +90,11 @@ function FMS.HeloOps.NewCTLD(coalitionSide, prefixes, alias, configFunction_)
 
 	if configFunction_ ~= nil then
 		configFunction_(_ctld_instance)
+	else
+		_ctld_instance:ApplyDefaultConfiguration()
 	end
+
+	FMS.DBSpawn(FMS.HeloOps.DownedPilotTemplate, country.id.USA, Group.Category.GROUND)
 
 	_ctld_instance:__Start(2)
 	return _ctld_instance
@@ -91,6 +103,39 @@ end
 -- -----------------------------------------------------------------------------
 -- CTLD
 -- -----------------------------------------------------------------------------
+
+--- Applies the default configuration options to a CTLD instance
+function CTLD:ApplyDefaultConfiguration()
+	
+	-- Set CTLD config options
+	self.useprefix = false                 -- enables *all* coalition choppers to use CTLD. Must be set before Start()
+	self.nobuildinloadzones = false        -- forbid players to build stuff in LOAD zones if set to `true`
+	self.movecratesbeforebuild = false     -- crates must be moved once before they can be build. Set to false for direct builds.
+	self.forcehoverload = false            -- Crates (not: troops) can **only** be loaded while hovering.
+	self.maximumHoverHeight = 50           -- Hover max this high to load.
+	self.minimumHoverHeight = 5            -- Hover min this low to load. NOTE FROM FEDGE: This must be at least a few meters > 0 for MOOSE to properly detect that a unit is grounded.
+	self.dropcratesanywhere = true
+	self.cratecountry = country.id.CJTF_BLUE
+	self.repairtime = 60                   -- Number of seconds it takes to repair a unit.
+	self.buildtime = 60                    -- Number of seconds it takes to build a unit. Set to zero or nil to build instantly.
+	self.movetroopstowpzone = true         -- Troops and vehicles will move to the nearest MOVE zone...
+	self.movetroopsdistance = 2000         -- .. but only if this far away (in meters)
+	self.troopdropzoneradius = 5
+	self.usesubcats = false
+	--self.pilotmustopendoors = true
+	
+	-- Set unit capabilities for all helo units
+	--                       Airframe          crates troops crates# troops# length maxwt
+	self:SetUnitCapabilities("AH-64D_BLK_II",  false, false, 0,       0,     20,     200)
+	self:SetUnitCapabilities("UH-60L",          true,  true, 1,      14,     25,    5000)
+	self:SetUnitCapabilities("UH-1H",           true,  true, 1,       8,     20,    2000)
+	self:SetUnitCapabilities("Mi-8MT",          true,  true, 2,      24,     30,   10000)
+	self:SetUnitCapabilities("Mi-8MTV2",        true,  true, 2,      24,     30,   10000)
+	self:SetUnitCapabilities("CH-47F",          true,  true, 2,      33,     30,   15000)
+	-- Tweaked the max weights to allow for realistic overloading
+	
+	self:logINF("FMS default CTLD configuration and parameters applied.")
+end
 
 --- Adds a group template (or multiple templates) to the "Troops" menu
 -- `groupTemplateNames` can be a string, or a table of strings
@@ -408,8 +453,6 @@ end
 -- -----------------------------------------------------------------------------
 
 function FMS.HeloOps.NewCSAR(coalitionSide_, alias_, prefixes_, downedPilotGroupTemplateName_, configFunction_)
-	--TODO: Use "Carrier LSO 6" as downed pilot model
-	
 	local _coalition = coalitionSide_ or coalition.side.BLUE
 	local _alias = alias_ or "CSAR Corps"
 	local _downedPilotGroupTemplateName = downedPilotGroupTemplateName_
@@ -447,12 +490,40 @@ function FMS.HeloOps.NewCSAR(coalitionSide_, alias_, prefixes_, downedPilotGroup
 
 	if configFunction_ ~= nil then
 		configFunction_(_csar_instance)
+	else
+		_csar_instance:ApplyDefaultConfiguration()
 	end
 
 	_csar_instance:__Start(4)
 		
 	return _csar_instance
 end
+
+function CSAR:ApplyDefaultConfiguration()
+	-- self.useprefix = false -- Handled by the OA.HeloOps:NewCSAR() function
+
+	self.csarOncrash = true -- If set to true, will generate a downed pilot when a plane crashes as well.
+	self.enableForAI = true
+	self.allowDownedPilotCAcontrol = true
+	self.coordtype = 2 -- MGRS
+	self.extractDistance = 200
+	self.loadDistance = 5
+	self.approachdist_far = 2000
+	self.approachdist_near = 1000
+	self.pilotmustopendoors = false
+	self.rescuehoverheight = 30
+	self.rescuehoverdistance = 10
+
+	self.suppressmessages = false -- false by default
+	self.immortalcrew = true -- true by default
+	self.invisiblecrew = false -- false by default
+	self.autosmoke = false  -- false by default
+	self.max_units = 6 -- 6 is default
+	self.allowFARPRescue = true -- true by default
+	
+	self:logINF("Default Configuration applied.")
+end
+
 
 function CSAR:SpawnDownedPilotInZone(zoneName, pilotName_)
 	local _name = pilotName_
@@ -524,30 +595,31 @@ end
 
 function FMS.HeloOps.RunBuiltInTest()
 	local errorFuse = false
-	if FMS.HeloOps.Error.MissingTroops > 0 then
+	local function errMsg(msg)
 		errorFuse = true
-		MESSAGE:New("Missing " .. FMS.HeloOps.Error.MissingTroops .. " troop group templates", 20, "HeloOps|CTLD"):ToAll()
+		MESSAGE:New(msg, 20, logPrefix):ToAll()
+	end
+	
+	if FMS.HeloOps.Error.MissingTroops > 0 then
+		errMsg("Missing " .. FMS.HeloOps.Error.MissingTroops .. " troop group templates")
 	end
 	if FMS.HeloOps.Error.MissingVehicles > 0 then
-		errorFuse = true
-		MESSAGE:New("Missing " .. FMS.HeloOps.Error.MissingVehicles .. " vehicle group templates", 20, "HeloOps|CTLD"):ToAll()
+		errMsg("Missing " .. FMS.HeloOps.Error.MissingVehicles .. " vehicle group templates")
 	end
 	if FMS.HeloOps.Error.MissingCrates > 0 then
-		errorFuse = true
-		MESSAGE:New("Missing " .. FMS.HeloOps.Error.MissingCrates .. " crate static templates", 20, "HeloOps|CTLD"):ToAll()
+		errMsg("Missing " .. FMS.HeloOps.Error.MissingCrates .. " crate static templates")
 	end
 	if FMS.HeloOps.Error.MissingFARP > 0 then
-		errorFuse = true
-		MESSAGE:New("Missing " .. FMS.HeloOps.Error.MissingFARP .. " FARP templates", 20, "HeloOps|CTLD"):ToAll()
+		errMsg("Missing " .. FMS.HeloOps.Error.MissingFARP .. " FARP templates")
+	end
+	if FMS.HeloOps.Error.InitFailure then
+		errMsg("An error occurred when trying to initialize CTLD.")
 	end
 
-	if errorFuse then
-		env.error("FMS HeloOps CTLD initialization: FAILURE")
-	else
-		local msg = "FMS HeloOps CTLD initialization: SUCCESS"
-		env.info(msg)
-		MESSAGE:New(msg):ToAll()
-	end
+	local msg = "FMS HeloOps CTLD initialization: " .. (errorFuse and "FAILURE" or "SUCCESS")
+	MESSAGE:New(msg):ToAll()
+	if errorFuse then FMS.HeloOps.Log.error(msg)
+	else FMS.HeloOps.Log.info(msg) end
 end
 
 function FMS.HeloOps.FixFARP(farpName)
@@ -673,3 +745,119 @@ FMS.HeloOps.Hummer = {
 	name = "FMS Hummer",
 	hiddenOnPlanner = true
 }
+
+-- -----------------------------------------------------------------------------
+-- HeloOps STM Operations
+-- Dependencies:
+--   - FMS.Utilities
+--   - FMS.StaticTemplates
+-- -----------------------------------------------------------------------------
+
+--- Adds troops found in the specified static template to the CTLD troops menu.
+-- A "sidecar" lua file may be created that describes the groups in more detail (e.g. provide weight, submenu names, etc.).
+-- The format of this sidecar file should be a simple lua script that returns a table, where each key in the table
+-- is the name of the template group (in the ME), and each key is a table with `name`, `qty` and `wt` values that
+-- specify the CTLD group's "menu name", "unit count", and "unit weight", respectively.
+function CTLD:AddTroopGroupsFromSTM( templateName, missionDirPath, sidecarAbsolutePath_, restrictToOnlySidecar_ )
+	self:_AddGroupsFromSTM(false, templateName, missionDirPath, sidecarAbsolutePath_, restrictToOnlySidecar_)
+end
+
+--- Adds vehicles found in the specified static template to the CTLD crates menu.
+-- A "sidecar" lua file may be created that describes the groups in more detail (e.g. provide weight, submenu names, etc.).
+-- The format of this sidecar file should be a simple lua script that returns a table, where each key in the table
+-- is the name of the template group (in the ME), and each key is a table with `name`, `qty` and `wt` values that
+-- specify the CTLD group's "menu name", "crate count", and "unit weight", respectively.
+function CTLD:AddVehicleGroupsFromSTM( templateName, missionDirPath, sidecarAbsolutePath_, restrictToOnlySidecar_ )
+	self:_AddGroupsFromSTM(true, templateName, missionDirPath, sidecarAbsolutePath_, restrictToOnlySidecar_)
+end
+
+function CTLD:_AddGroupsFromSTM( isCrated, templateName, missionDirPath, sidecarAbsolutePath_, restrictToOnlySidecar_ )
+	self:logINF("Adding groups from template: "..templateName)
+
+	if not FMS.PATH then
+		self:logERR("Unable to call CTLD:_AddGroupsFromSTM(). Did you call FMS.Init()?")
+		FMS.HeloOps.Error.InitFailure = true
+		return
+	elseif not FMS.Utilities then
+		self:logERR("Unable to call CTLD:_AddGroupsFromSTM(). Cannot find FMS.Utilities.")
+		FMS.HeloOps.Error.InitFailure = true
+		return
+	elseif not FMS.StaticTemplates then
+		self:logERR("Unable to call CTLD:_AddGroupsFromSTM(). Cannot find FMS.StaticTemplates.")
+		FMS.HeloOps.Error.InitFailure = true
+		return
+	end
+
+	-- Attempt to load a sidecar file with menu names, weights, counts, etc
+	local sidecarFilePath = sidecarAbsolutePath_ or FMS.PATH(missionDirPath .. "\\" .. templateName .. ".lua")
+	local troopsLookup = FMS.LoadFileWithResult(sidecarFilePath)
+
+	local templateFilePath = FMS.PATH(missionDirPath .. "\\" .. templateName .. ".stm")
+	FMS.RegisterSTMFile(templateFilePath,
+		function(vehicleGroup, category)
+			if category == Group.Category.GROUND then
+				local groupName = vehicleGroup.name
+				if restrictToOnlySidecar_ and troopsLookup and (not troopsLookup[groupName]) then
+					self:logINF("Skipping group '"..groupName.."' not found in sidecar")
+				else
+					local sidecarTable = {}
+					if troopsLookup then sidecarTable = troopsLookup[groupName] or {} end
+					local menuName   = sidecarTable.name or groupName
+					local unitCount  = sidecarTable.qty or sidecarTable.count or #(vehicleGroup.units)
+					local unitWeight = sidecarTable.wt or sidecarTable.weight or 80
+					local submenu    = sidecarTable.submenu
+					if isCrated then
+						self:AddVehicleGroups(menuName, {groupName}, unitCount, unitWeight, submenu)
+					else
+						self:AddTroopGroups(menuName, {groupName}, unitCount, unitWeight, submenu)
+					end
+				end
+			end
+		end,
+		nil, true
+	)
+end
+
+function CTLD:registerSTMFARP( stmTable, oa_path, FARPTemplatePlaceholderGroupName_, cratesCount_, perCrateMassKg_ )
+	
+	local _FARPTemplateGroupName = FARPTemplatePlaceholderGroupName_ or "FARP"
+	local cratesCount = cratesCount_ or 2
+	local perCrateMassKg = perCrateMassKg_ or 2000
+	local _heliportStaticName = nil
+	local groupNames = {}
+	local staticNames = {}
+
+	FMS.RegisterSTM(stmTable, oa_path,
+		function(vehicleGroupTable, category)
+			if vehicleGroupTable.name ~= _FARPTemplateGroupName then
+				table.insert(groupNames, vehicleGroupTable.name)
+			end
+		end,
+
+		function(staticGroupTable)
+			local unitTable = staticGroupTable.units[1]
+			-- We assume that there will be *one and only one* heliport in this STM template file
+			if unitTable.category == "Heliports" then
+				_heliportStaticName = unitTable.name
+			else
+				table.insert(staticNames, unitTable.name)
+			end
+		end,
+
+		true
+	)
+
+	self:AddFARPCrates("FARP", _FARPTemplateGroupName, cratesCount, perCrateMassKg)
+	self:ConfigureFARP(_FARPTemplateGroupName, _heliportStaticName, groupNames, staticNames, nil)
+
+end
+
+-- Since FMS.DBSpawn lives in `StaticTemplates.lua`, I'm going to reimplement a terse copy here.
+if not FMS.DBSpawn then
+	env.warning("FMS.HeloOps: Defining my own DBSpawn method!")
+	function FMS.DBSpawn(template, countryId, categoryId)
+		template.CountryID = countryId
+		template.CategoryID = categoryId
+		_DATABASE:Spawn(template)
+	end
+end
