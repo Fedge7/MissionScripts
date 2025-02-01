@@ -241,6 +241,7 @@ end
 function FMS.IED:New(iedGroup, radius_, chance_)
 
 	if not FMS.IED.TriggeringGroups then
+		LOG:Log("Constructing FMS.IED.TriggeringGroups")
 		FMS.IED.TriggeringGroups = SET_GROUP:New()
 			:FilterCoalitions("blue")
 			:FilterAlive()
