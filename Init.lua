@@ -11,7 +11,6 @@ FMS = {MOOSE_DEBUG = false}
 FMS.MODULES = {
 	AirRange        = {name="AirRange",        path="FMS\\AirRange.lua"},
 	HeloOps         = {name="HeloOps",         path="FMS\\HeloOps.lua"},
-	HeloOpsConfig   = {name="HeloOpsConfig",   path="FMS\\HeloOpsConfig.lua"},
 	Log             = {name="Log",             path="FMS\\Log.lua"},
 	Navy            = {name="Navy",            path="FMS\\Navy.lua"},
 	OpsArea         = {name="OpsArea",         path="FMS\\OpsArea.lua"},
