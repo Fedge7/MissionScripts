@@ -245,15 +245,15 @@ end
 FMS.HeloOps.FARP = {
 	-- An array of FARP names
 	Clearnames = {
-		[1]="London",
-		[2]="Dallas",
-		[3]="Paris",
-		[4]="Moscow",
-		[5]="Berlin",
-		[6]="Rome",
-		[7]="Madrid",
-		[8]="Warsaw",
-		[9]="Dublin",
+		[ 1]="London",
+		[ 2]="Dallas",
+		[ 3]="Paris",
+		[ 4]="Moscow",
+		[ 5]="Berlin",
+		[ 6]="Rome",
+		[ 7]="Madrid",
+		[ 8]="Warsaw",
+		[ 9]="Dublin",
 		[10]="Perth",
 	},
 
@@ -529,7 +529,7 @@ function CSAR:SpawnDownedPilotInZone(zoneName, pilotName_)
 	local _name = pilotName_
 	
 	if not _name then
-		_name = FMS.HeloOps.randomNames[ math.random( #FMS.HeloOps.randomNames ) ]
+		_name = FMS.HeloOps.RandomNames[ math.random( #FMS.HeloOps.RandomNames ) ]
 	end
 	
 	self:logINF("Preparing to spawn downed pilot: " .. _name)
@@ -664,7 +664,7 @@ function FMS.HeloOps.FixFARP(farpName)
 	TIMER:New(function() MESSAGE:New(farpName.."' has been supplied."):ToAll() end):Start(6)
 end
 
-function FMS.HeloOps.FillFARP(farpName)
+function FMS.HeloOps.FillFARP(farpName, liquids_, items_)
 	local ab = AIRBASE:FindByName(farpName)
 	if ab == nil then
 		FMS.HeloOps.Log.error("FixFARP: Cannot find airbase named '"..farpName.."'.")
@@ -672,8 +672,8 @@ function FMS.HeloOps.FillFARP(farpName)
 	end
 	
 	local wh = ab:GetStorage()
-	FMS.HeloOps._SetFARPLiquids(wh, 100)
-	FMS.HeloOps._SetFARPItems(wh, 1000)
+	FMS.HeloOps._SetFARPLiquids(wh, liquids_ or 100)
+	FMS.HeloOps._SetFARPItems(wh, items_ or 1000)
 
 	FMS.HeloOps.Log.info("FillFARP: FARP '"..farpName.."' has been supplied.")
 end
@@ -699,7 +699,7 @@ function FMS.HeloOps._SetFARPItems(wh, count)
 	end
 end
 
-FMS.HeloOps.randomNames = {
+FMS.HeloOps.RandomNames = {
 	"Pete Mitchell", "Tom Kazansky", "Nick Bradshaw", "Mike Metcalf", "Marcus Williams", "Tom Jardian", "Rick Hieatherly", "Ron Kerner", "Rick Neven", "Bill Cortell", "Henry Ruth", "Sam Wells",
 	"Beau Simpson", "Jake Seresin", "Chester Cain", "Robert Floyd", "Solomon Bates", "Bernie Coleman", "Reuben Fitch", "Mickey Garcia",
 	"Jake Preston", "Brad Little",
