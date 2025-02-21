@@ -240,14 +240,14 @@ end
 
 function FMS.IED:New(iedGroup, radius_, chance_)
 
-	if not FMS.IED.TriggeringGroups then
-		LOG:Log("Constructing FMS.IED.TriggeringGroups")
-		FMS.IED.TriggeringGroups = SET_GROUP:New()
-			:FilterCoalitions("blue")
-			:FilterAlive()
-			-- :FilterCategories("ground","helicopter")
-			:FilterStart()
-	end
+	-- if not FMS.IED.TriggeringGroups then
+	-- 	LOG:Log("Constructing FMS.IED.TriggeringGroups")
+	-- 	FMS.IED.TriggeringGroups = SET_GROUP:New()
+	-- 		:FilterCoalitions("blue")
+	-- 		:FilterAlive()
+	-- 		-- :FilterCategories("ground","helicopter")
+	-- 		:FilterStart()
+	-- end
 
 	local obj = {}
 	setmetatable(obj, self)
@@ -262,50 +262,34 @@ function FMS.IED:_init(iedGroup, radius_, chance_)
 	self.name = iedGroup:GetName()
 	self.radius = radius_ or 30
 	self.armed = math.random() <= (chance_ or 0.5)
+	self.inspectionAltitudeLimit = 50
+
+	-- How long an inspection takes
+	self.minimumInspectionTime = 10
+	self.maximumInspectionTime = 30
+
+	-- How long the explosion delay is when inspecting
+	self.minimumExplosionDelay = 5
+	self.maximumExplosionDelay = 15
 
 	self.zoneName = self.name.."-"..tostring(math.random(1000,9999))
 	self.triggerZone = ZONE_GROUP:New(self.zoneName, self.iedGroup, self.radius)
-	self.triggerZone:Trigger(FMS.IED.TriggeringGroups)
+	-- self.triggerZone:Trigger(FMS.IED.TriggeringGroups)
 	
 	local armStatus = self.armed and "ARMED" or "safed"
 	local mgrsCoord = self.triggerZone:GetCoordinate():ToStringMGRS()
 	LOG:Log("IED group '"..iedGroup:GetName().."'  "..mgrsCoord.."  "..armStatus.."  "..iedGroup:GetTypeName())
 
 	self:_setupEvents()
+	self:_startScanningForTriggers()
 end
 
 function FMS.IED:_setupEvents()
 
 	local _self = self
-	function _self.triggerZone:OnAfterEnteredZone(from, event, to, group)
-		LOG:Log("Something entered trigger zone ".._self.zoneName)
-
-		if _self.iedGroup:IsAlive() then
-			local gname = group:GetName()
-			local zname = _self.zoneName
-			
-			local closeElevation = math.abs(_self.iedGroup:GetHeight() - group:GetHeight()) < 50
-			local canInspect = group:IsAir() or group:IsPlayer()
-
-			if closeElevation and canInspect then
-				LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Performing inspection.")
-				_self:inspect()
-			elseif group:IsGround() then
-				if _self.armed then
-					local delay = math.random(1,15)
-					LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Triggering explosion in "..tostring(delay).." seconds.")
-					TIMER:New(FMS.IED.explode, _self):Start(delay)
-				else
-					LOG:Log("Target group "..gname.." has entered an uninspected, unarmed IED zone: "..zname..".")	
-				end
-			else
-				LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Unknown category.")
-			end			
-		-- else
-		-- 	LOG:Log("Target group has entered an inactive IED zone. Supressing explosion.")
-		-- 	_self:cleanup()
-		end
-	end
+	-- function _self.triggerZone:OnAfterEnteredZone(from, event, to, group)
+	-- 	_self:targetInZone(group)
+	-- end
 
 	_self.iedGroup:HandleEvent(EVENTS.Dead)
 
@@ -333,6 +317,53 @@ function FMS.IED:_setupEvents()
 	end
 end
 
+function FMS.IED:_startScanningForTriggers()
+	local pollingTime = 10--seconds
+	local triggeringCategories = { Unit.Category.HELICOPTER, Unit.Category.GROUND_UNIT }
+	
+	self.triggerTimer = TIMER:New(function()
+		self.triggerZone:Scan(Object.Category.UNIT, triggeringCategories)
+		local inZone = self.triggerZone:IsSomeInZoneOfCoalition(coalition.side.BLUE)
+		if inZone then
+			local triggeringGroup = self.triggerZone:GetScannedSetGroup():GetFirst()
+			if triggeringGroup then self:targetInZone(triggeringGroup) end
+		end
+	end)
+
+	self.triggerTimer:Start(5, pollingTime)
+end
+
+function FMS.IED:targetInZone(group)
+	LOG:Log("Something entered trigger zone "..self.zoneName)
+
+	if self.iedGroup:IsAlive() then
+		local gname = group:GetName()
+		local zname = self.zoneName
+		
+		local closeElevation = math.abs(self.iedGroup:GetHeight() - group:GetHeight()) < self.inspectionAltitudeLimit
+		local canInspect = group:IsAir() or group:IsPlayer()
+
+		if closeElevation and canInspect then
+			LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Performing inspection.")
+			self:inspect()
+		elseif group:IsGround() then
+			if self.armed then
+				local delay = math.random(1,15)
+				local explPower = math.random(200,800)
+				LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Triggering explosion in "..tostring(delay).." seconds.")
+				TIMER:New(FMS.IED.explode, self, explPower):Start(delay)
+			else
+				LOG:Log("Target group "..gname.." has entered an uninspected, unarmed IED zone: "..zname..".")	
+			end
+		else
+			LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Not a ground unit. CloseElevation?="..tostring(closeElevation)..".  CanInspect?="..tostring(canInspect))
+		end			
+	-- else
+	-- 	LOG:Log("Target group has entered an inactive IED zone. Supressing explosion.")
+	-- 	self:cleanup()
+	end
+end
+
 function FMS.IED:radioMessage(txt, sound)
 	MESSAGE:New(txt, 30):ToAll()
 	if sound then
@@ -347,11 +378,10 @@ function FMS.IED:inspect()
 	self.triggerZone:DrawZone(nil, yellow, 1.0, yellow, 0.3, 5)
 	self:radioMessage("Close inspection of suspected IED initiated.", "ied_inspect.ogg")
 
-	local maximumInspectionTime = 30
 	if self.armed then
 		self:inspectArmed()
 	else
-		TIMER:New(FMS.IED.noThreat, self):Start(maximumInspectionTime)
+		TIMER:New(FMS.IED.noThreat, self):Start(self.maximumInspectionTime)
 	end
 	
 end
@@ -360,11 +390,10 @@ function FMS.IED:inspectArmed()
 	-- local observeChance = 0.5
 	-- local canObserve = math.random() <= observeChance
 	-- if canObserve then
-		local observationDelay = math.random(5, maximumInspectionTime)
+		local observationDelay = math.random(self.minimumInspectionTime, self.maximumInspectionTime)
 		TIMER:New(FMS.IED.threatDetected, self):Start(observationDelay)
 	-- else
-	-- 	local maximumInspectionTime = 30
-	-- 	TIMER:New(FMS.IED.threatUndetermined, self):Start(maximumInspectionTime)
+	-- 	TIMER:New(FMS.IED.threatUndetermined, self):Start(self.maximumInspectionTime)
 	-- end
 end
 
@@ -373,9 +402,10 @@ function FMS.IED:threatDetected()
 	self.triggerZone:UndrawZone()
 	self.triggerZone:DrawZone(nil, red, 1.0, red, 0.5, 6)
 
-	local explDelay = math.random(2,10)
+	local explDelay = math.random(self.minimumExplosionDelay, self.maximumExplosionDelay)
+	local explPower = math.random(100,400)
 	self:radioMessage("IED Confirmed! Get the hell outta here!", "ied_confirmed.ogg")
-	TIMER:New(FMS.IED.explode, self):Start(explDelay)
+	TIMER:New(FMS.IED.explode, self, explPower):Start(explDelay)
 end
 
 function FMS.IED:threatUndetermined()
@@ -393,7 +423,7 @@ function FMS.IED:noThreat()
 end
 
 function FMS.IED:explode(power_)
-	local power = power_ or math.random(100,600)
+	local power = power_ or math.random(100,500)
 	LOG:Log("Calling IED.EXPLODE for "..self.name.." with power "..tostring(power))
 
 	local coord = self.iedGroup:GetCoordinate()
@@ -407,7 +437,8 @@ end
 
 function FMS.IED:cleanup()
 	LOG:Log("Calling IED.CLEANUP for "..self.name)
-	self.triggerZone:__TriggerStop(1)
+	-- self.triggerZone:__TriggerStop(1)
+	self.triggerTimer:Stop()
 	self.iedGroup:UnHandleEvent(EVENTS.Dead)
 	self.iedGroup:UnHandleEvent(EVENTS.Hit)
 end
