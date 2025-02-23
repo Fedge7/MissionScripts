@@ -281,7 +281,7 @@ function FMS.IED:_init(iedGroup, radius_, chance_)
 	LOG:Log("IED group '"..iedGroup:GetName().."'  "..mgrsCoord.."  "..armStatus.."  "..iedGroup:GetTypeName())
 
 	self:_setupEvents()
-	self:_startScanningForTriggers()
+	self:_startScanningForTriggeringUnits()
 end
 
 function FMS.IED:_setupEvents()
@@ -317,24 +317,49 @@ function FMS.IED:_setupEvents()
 	end
 end
 
-function FMS.IED:_startScanningForTriggers()
-	local pollingTime = 10--seconds
+function FMS.IED:_startScanningForTriggeringUnits()
 	local triggeringCategories = { Unit.Category.HELICOPTER, Unit.Category.GROUND_UNIT }
 	
 	self.triggerTimer = TIMER:New(function()
 		self.triggerZone:Scan(Object.Category.UNIT, triggeringCategories)
 		local inZone = self.triggerZone:IsSomeInZoneOfCoalition(coalition.side.BLUE)
 		if inZone then
-			local triggeringGroup = self.triggerZone:GetScannedSetGroup():GetFirst()
-			if triggeringGroup then self:targetInZone(triggeringGroup) end
+			LOG:Log(self.zoneName.." - blue coalition in zone.")
+
+			local inTriggerZoneSetBlue = self.triggerZone:GetScannedSetUnit()
+				:FilterCoalitions("blue")
+				:FilterZones({self.triggerZone})
+				:FilterOnce()
+
+			-- LOG:Log("Unit Count = "..tostring(inTriggerZoneSetBlue:Count()))
+
+			-- inTriggerZoneSetBlue:ForEachUnit(function(unit)
+			-- 	LOG:Log("Unit="..unit:GetName())
+			-- 	LOG:Log("     "..unit:GetCoalitionName())
+			-- end)
+
+			-- inTriggerZoneSetBlue:ForEachUnitCompletelyInZone(self.triggerZone, function(unit)
+			-- 	LOG:Log("UnitInZone="..unit:GetName())
+			-- 	LOG:Log("           "..unit:GetCoalitionName())
+			-- end)
+
+			local triggeringUnit = inTriggerZoneSetBlue:GetFirst()
+			-- LOG:Log("triggeringUnit="..tostring(triggeringUnit))
+
+			if triggeringUnit then self:targetInZone(triggeringUnit) end
 		end
 	end)
 
-	self.triggerTimer:Start(5, pollingTime)
+	-- Stagger the start times so they don't all poll at exactly the same time.
+	local startTime = math.random(5,25)--seconds
+	local pollingTime = 10--seconds
+	self.triggerTimer:Start(startTime, pollingTime)
 end
 
 function FMS.IED:targetInZone(group)
 	LOG:Log("Something entered trigger zone "..self.zoneName)
+	
+	self.triggerTimer:Stop()
 
 	if self.iedGroup:IsAlive() then
 		local gname = group:GetName()
@@ -344,19 +369,19 @@ function FMS.IED:targetInZone(group)
 		local canInspect = group:IsAir() or group:IsPlayer()
 
 		if closeElevation and canInspect then
-			LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Performing inspection.")
+			LOG:Log("Target inspecting group '"..gname.."'' has entered IED zone "..zname..". Performing inspection.")
 			self:inspect()
 		elseif group:IsGround() then
 			if self.armed then
 				local delay = math.random(1,15)
 				local explPower = math.random(200,800)
-				LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Triggering explosion in "..tostring(delay).." seconds.")
+				LOG:Log("Target ground group '"..gname.."'' has entered IED zone "..zname..". Triggering explosion in "..tostring(delay).." seconds.")
 				TIMER:New(FMS.IED.explode, self, explPower):Start(delay)
 			else
-				LOG:Log("Target group "..gname.." has entered an uninspected, unarmed IED zone: "..zname..".")	
+				LOG:Log("Target ground group '"..gname.."'' has entered an uninspected, unarmed IED zone: "..zname..".")	
 			end
 		else
-			LOG:Log("Target group "..gname.." has entered IED zone "..zname..". Not a ground unit. CloseElevation?="..tostring(closeElevation)..".  CanInspect?="..tostring(canInspect))
+			LOG:Log("Target group '"..gname.."'' has entered IED zone "..zname..". Not a ground unit. CloseElevation?="..tostring(closeElevation)..".  CanInspect?="..tostring(canInspect))
 		end			
 	-- else
 	-- 	LOG:Log("Target group has entered an inactive IED zone. Supressing explosion.")
@@ -438,7 +463,7 @@ end
 function FMS.IED:cleanup()
 	LOG:Log("Calling IED.CLEANUP for "..self.name)
 	-- self.triggerZone:__TriggerStop(1)
-	self.triggerTimer:Stop()
+	-- self.triggerTimer:Stop() -- handled in targetInZone()
 	self.iedGroup:UnHandleEvent(EVENTS.Dead)
 	self.iedGroup:UnHandleEvent(EVENTS.Hit)
 end
