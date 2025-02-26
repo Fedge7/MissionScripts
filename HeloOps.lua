@@ -45,7 +45,7 @@ FMS.HeloOps = {
 
 	-- Utility logging functions. Call `FMS.HeloOps.Log.info/warning/error`
 	Log = {
-		logenv =  function(msg, pri, category)
+		logenv = function(msg, pri, category)
 			local _msg = logPrefix
 			if category ~= nil then _msg = _msg .. "|" .. category end
 			_msg = _msg .. ": " .. msg
@@ -62,10 +62,10 @@ FMS.HeloOps = {
 }
 
 -- Utility logging methods for CTLD
-function CTLD:logINF(msg) FMS.HeloOps.Log.info("("..self.alias..") " .. msg, "CTLD") end
+function CTLD:logINF(msg) FMS.HeloOps.Log.info("("..self.alias..") "    .. msg, "CTLD") end
 function CTLD:logWAR(msg) FMS.HeloOps.Log.warning("("..self.alias..") " .. msg, "CTLD") end
-function CTLD:logERR(msg) FMS.HeloOps.Log.error("("..self.alias..") " .. msg, "CTLD") end
-function CSAR:logINF(msg) FMS.HeloOps.Log.info("("..self.alias..") " .. msg, "CSAR") end
+function CTLD:logERR(msg) FMS.HeloOps.Log.error("("..self.alias..") "   .. msg, "CTLD") end
+function CSAR:logINF(msg) FMS.HeloOps.Log.info("("..self.alias..") "    .. msg, "CSAR") end
 
 
 --- Creates a new CTLD instance
@@ -260,6 +260,7 @@ FMS.HeloOps.FARP = {
 	-- The index of the next FARP clearname that will be used
 	NameIdx = 1, -- numbers 1..10
 
+	-- Monotonically increasing count of spawned FARPs
 	Count = 1,
 	
 	-- FARP Radio. First one has 130AM, next 131 and for forth
@@ -536,7 +537,6 @@ function CSAR:SpawnDownedPilotInZone(zoneName, pilotName_)
 	self:SpawnCSARAtZone(zoneName, coalition.side.BLUE, _name, true, false, _name, "Aircraft")
 end
 
-
 function CSAR:csarMenuCommand(menuText, zoneName, parentMenu_)
 	MENU_MISSION_COMMAND:New(menuText, parentMenu_, CSAR.SpawnDownedPilotInZone, self, zoneName)
 end
@@ -660,7 +660,7 @@ function FMS.HeloOps.FixFARP(farpName)
 	TIMER:New(function() FMS.HeloOps._SetFARPItems(wh, 0)     end):Start(2)
 	TIMER:New(function() FMS.HeloOps._SetFARPLiquids(wh, 100) end):Start(3)
 	TIMER:New(function() FMS.HeloOps._SetFARPItems(wh, 500)   end):Start(4)
-	TIMER:New(function() check(wh)            end):Start(5)
+	TIMER:New(function() check(wh)                            end):Start(5)
 	TIMER:New(function() MESSAGE:New(farpName.."' has been supplied."):ToAll() end):Start(6)
 end
 
