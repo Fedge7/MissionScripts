@@ -245,15 +245,15 @@ end
 FMS.HeloOps.FARP = {
 	-- An array of FARP names
 	Clearnames = {
-		[1]="London",
-		[2]="Dallas",
-		[3]="Paris",
-		[4]="Moscow",
-		[5]="Berlin",
-		[6]="Rome",
-		[7]="Madrid",
-		[8]="Warsaw",
-		[9]="Dublin",
+		[ 1]="London",
+		[ 2]="Dallas",
+		[ 3]="Paris",
+		[ 4]="Moscow",
+		[ 5]="Berlin",
+		[ 6]="Rome",
+		[ 7]="Madrid",
+		[ 8]="Warsaw",
+		[ 9]="Dublin",
 		[10]="Perth",
 	},
 
@@ -410,8 +410,7 @@ function CTLD:ConfigureFARP(
 			self:logINF(msg)
 			MESSAGE:New(msg, 30):ToAll()
 
-			-- Bullshit DCS hack to fix ED's garbage code.
-			FMS.HeloOps.FixFARP(spawnedFarpName)
+			FMS.HeloOps.FillFARP(spawnedFarpName)
 
 			-- TODO: Do we need to make a loadzone?
 		end
@@ -622,6 +621,7 @@ function FMS.HeloOps.RunBuiltInTest()
 	else FMS.HeloOps.Log.info(msg) end
 end
 
+-- Bullshit DCS hack to fix ED's garbage code.
 function FMS.HeloOps.FixFARP(farpName)
 	FMS.HeloOps.Log.info("FixFARP("..farpName..")")
 
@@ -656,10 +656,10 @@ function FMS.HeloOps.FixFARP(farpName)
 	
 	local wh = ab:GetStorage()
 
-	TIMER:New(function() _SetFARPLiquids(wh, 0)   end):Start(1)
-	TIMER:New(function() _SetFARPItems(wh, 0)     end):Start(2)
-	TIMER:New(function() _SetFARPLiquids(wh, 100) end):Start(3)
-	TIMER:New(function() _SetFARPItems(wh, 500)   end):Start(4)
+	TIMER:New(function() FMS.HeloOps._SetFARPLiquids(wh, 0)   end):Start(1)
+	TIMER:New(function() FMS.HeloOps._SetFARPItems(wh, 0)     end):Start(2)
+	TIMER:New(function() FMS.HeloOps._SetFARPLiquids(wh, 100) end):Start(3)
+	TIMER:New(function() FMS.HeloOps._SetFARPItems(wh, 500)   end):Start(4)
 	TIMER:New(function() check(wh)            end):Start(5)
 	TIMER:New(function() MESSAGE:New(farpName.."' has been supplied."):ToAll() end):Start(6)
 end
