@@ -31,6 +31,7 @@ FMS._init = {
 	}
 }
 
+--- pathToMOOSE_ must be *relative* to the missionDirectory
 function FMS.INIT(missionDirectory, pathToMOOSE_)
 
 	if not missionDirectory then
@@ -170,8 +171,19 @@ function FMS.PATH(relativePath)
 end
 
 --- Runs a lua file at the given relative path, relative to the FMS.MISSION_DIR.
-function FMS.LOAD(relativePath)
-	local filePath = FMS.PATH(relativePath)
+--- This function accepts a relative path, or an absolute path, BUT NOT BOTH!
+function FMS.LOAD(relativePath, absolutePath)
+	local filePath = null
+	
+	if relativePath then
+		filePath = FMS.PATH(relativePath)
+	elseif absolutePath then
+		filePath = absolutePath
+	else
+		env.error("FMS.LOAD ERROR -- No path supplied.")
+		return false
+	end
+	
 	env.info("FMS.LOAD<" .. filePath .. ">")
 
 	local f, error = loadfile(filePath)
@@ -182,6 +194,10 @@ function FMS.LOAD(relativePath)
 		env.error("FMS.LOAD ERROR -- " .. tostring(error))
 		return false
 	end
+end
+
+function FMS.LOAD_ABS(absolutePath)
+	return FMS.LOAD(null, absolutePath)
 end
 
 function FMS._init.CheckForMOOSE()
