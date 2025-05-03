@@ -20,12 +20,13 @@ Modifications:
 	- v0.7    Fedge            Adds support for CTLD:onTroopsDeployed() function for easier callbacks
 	- v1.0    Fedge            Cleanup.
 	- v2.0    Fedge            Combines HeloOps and HeloOpsConfig scripts.
+	- v2.1    Fedge            Bugfix for FARPs. Adds SpawnAndFillSTMFARPAtVec2().
 
 TODO:
 	- CSAR random missions
 ]]
 
-local version = "v2.0"
+local version = "v2.1"
 local logPrefix = "FMS.HeloOps"
 
 env.info("FMS.HeloOps " .. version .. " loading.")
@@ -752,6 +753,24 @@ FMS.HeloOps.Hummer = {
 --   - FMS.Utilities
 --   - FMS.StaticTemplates
 -- -----------------------------------------------------------------------------
+
+--- Spawns the STM file at the specified path at the specified vec2.
+function FMS.HeloOps.SpawnAndFillSTMFARPAtVec2(templateName, missionDirPath, vec2, spawnedHandler_)
+	FMS.SpawnSTMAtVec2(templateName, missionDirPath, vec2, function(spawned)
+		FMS.HeloOps.FillSpawnIfFARP(spawned)
+		FMS.CallHandler(spawnedHandler_, spawned)
+	end)
+end
+
+--- If the specified Wrapper group/static is a FARP type, fill it with supplies.
+function FMS.HeloOps.FillSpawnIfFARP(spawned)
+	local farpTypeNames = {"Invisible FARP"}
+	for _, farpTypeName in ipairs(farpTypeNames) do
+		if farpTypeName == spawned:GetTypeName() then
+			FMS.HeloOps.FillFARP(spawned:GetName())
+		end
+	end
+end
 
 --- Adds troops found in the specified static template to the CTLD troops menu.
 -- A "sidecar" lua file may be created that describes the groups in more detail (e.g. provide weight, submenu names, etc.).

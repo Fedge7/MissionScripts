@@ -75,6 +75,21 @@ function FMS.TraverseSTM(templateName, missionDirPath, groupHandler_, staticHand
 	end
 end
 
+function FMS.SpawnSTMAtVec2(templateName, missionDirPath, vec2, spawnedHandler_)
+	_info("SpawnSTMAtVec2(".. (templateName or ("nil")) ..")")
+	
+	local stmTable = _G[templateName]
+	if stmTable then
+		_debug("  - Found global variable named "..templateName..". Spawning template from memory.")
+		-- Spawn the table in the global namespace named `templateName` into the mission
+		FMS.SpawnSTMTableAtVec2(stmTable, vec2, spawnedHandler_)
+	else
+		local fullPath = ""
+		if missionDirPath then fullPath = missionDirPath .. "\\" end
+		FMS.SpawnSTMFileAtVec2(FMS.PATH(fullPath .. templateName .. ".stm"), vec2, spawnedHandler_)
+	end
+end
+
 -------------------------------------------------------------------------------
 -- FILE FUNCTIONS
 -------------------------------------------------------------------------------
@@ -102,6 +117,11 @@ end
 function FMS.SpawnSTMFile( absolutePath, spawnedHandler_ )
 	_info("SpawnSTMFile  <" .. absolutePath .. ">")
 	FMS.SpawnSTMTable(FMS.LoadFileWithResult(absolutePath), spawnedHandler_)
+end
+
+function FMS.SpawnSTMFileAtVec2( absolutePath, vec2, spawnedHandler_ )
+	_info("SpawnSTMFileAtVec2  <" .. absolutePath .. ">")
+	FMS.SpawnSTMTableAtVec2(FMS.LoadFileWithResult(absolutePath), vec2, spawnedHandler_)
 end
 
 -------------------------------------------------------------------------------
@@ -188,14 +208,73 @@ function FMS.SpawnSTMTable( stmTable, spawnedHandler_ )
 	)
 end
 
-function FMS.StaticTemplates._SpawnStatic(staticGroupTable, coalitionId, countryId, newName_)
+function FMS.SpawnSTMTableAtVec2( stmTable, vec2, spawnedHandler_ )
+	_info("SpawnSTMTableAtVec2()")
+
+	if (not stmTable) or (type(stmTable) ~= "table") then
+		env.error("Unable to spawn STM table.")
+		return
+	end
+
+	-- Get the first group in the stm table, so we can use its coordinate as our reference point.
+	local firstGroup = FMS._GetFirstGroupOrStaticInSTMTable(stmTable, "blue", "vehicle")
+
+	local firstVec2 = {x = firstGroup.x, y = firstGroup.y}
+	local offset = {
+		x = vec2.x - firstVec2.x,
+		y = vec2.y - firstVec2.y
+	}
+
+	FMS._TraverseSTMTable(stmTable,
+		function(vehicleGroupTable, category, coalitionId, countryId)
+			local groupVec2 = {
+				x = vehicleGroupTable.x + offset.x,
+				y = vehicleGroupTable.y + offset.y
+			}
+			-- _DATABASE:_RegisterGroupTemplate(vehicleGroupTable, coalitionId, category, countryId)
+			GROUP:NewTemplate(vehicleGroupTable, coalitionId, category, countryId)
+			local spawned = SPAWN:New(vehicleGroupTable.name):SpawnFromVec2(groupVec2)
+			FMS.CallHandler(spawnedHandler_, spawned)
+		end,
+
+		function(staticGroupTable, coalitionId, countryId)
+			local groupVec2 = {
+				x = staticGroupTable.x + offset.x,
+				y = staticGroupTable.y + offset.y
+			}
+
+			-- Rotate the entire STM table, using the firstVec2 as a pivot
+			-- local rotatedVec2 = UTILS.RotatePointAroundPivot(groupVec2, firstVec2, 90)
+			-- local newCoord = COORDINATE:NewFromVec2(rotatedVec2)
+
+			local newCoord = COORDINATE:NewFromVec2(groupVec2)
+
+			-- Since we don't have handle on the SPAWNSTATIC objects created from any previous attempts to spawn
+			-- these statics, we need to guarantee that they have a unique name, otherwise they'll despawn the
+			-- previously spawned static object. So we'll just append a monotonically-increasing counter to the name.
+			-- This is lazy. And performant.
+			local newName = staticGroupTable.name .. "_" .. tostring(FMS.StaticTemplates._GetUniqueCounter())
+
+			local spawned = FMS.StaticTemplates._SpawnStatic(staticGroupTable, coalitionId, countryId, newName, newCoord)
+			FMS.CallHandler(spawnedHandler_, spawned)
+		end
+	)
+end
+
+function FMS.StaticTemplates._SpawnStatic(staticGroupTable, coalitionId, countryId, newName_, coordinate_)
 	_debug("FMS.StaticTemplates._SpawnStatic()")
 	local unitTable = staticGroupTable.units[1]
 
 	-- We have to set a new unitId here because the id in the STM file may collide with with ids present in the actual mission/miz file
 	unitTable.unitId = FMS.GetUniqueStaticID()
 	local spwn = SPAWNSTATIC:NewFromTemplate(unitTable, countryId)
-	local spawnedStatic = spwn:Spawn(nil, newName_)
+	local spawnedStatic = nil
+	if coordinate_ then
+		spawnedStatic = spwn:SpawnFromCoordinate(coordinate_, nil, newName_)
+	else
+		spawnedStatic = spwn:Spawn(nil, newName_)
+	end
+
 	if spawnedStatic then
 		_debug("  - Spawned STATIC: " .. tostring(spawnedStatic:GetName()))
 		return spawnedStatic
@@ -241,13 +320,35 @@ function FMS._TraverseSTMFile( absolutePath, groupHandler_, staticHandler_ )
 	FMS._TraverseSTMTable(stmTable, groupHandler_, staticHandler_)
 end
 
---- Traverses the specified STM lua table
+--- Traverses the specified STM lua table and calls a specific handler for each group or static.
 function FMS._TraverseSTMTable( stmTable, groupHandler_, staticHandler_ )
+	_info("_TraverseSTMTable()")
+	FMS._TraverseSTMGroups( stmTable,
+		function(groupTemplate, category, coalitionId, countryId)
+			if groupTemplate and groupTemplate.units and type(groupTemplate.units) == 'table' then
+				if category ~= Unit.Category.STRUCTURE then
+					if groupHandler_ and type(groupHandler_) == "function" then
+						return groupHandler_(groupTemplate, category, coalitionId, countryId)
+					end
+				else
+					if staticHandler_ and type(staticHandler_) == "function" then
+						return staticHandler_(groupTemplate, coalitionId, countryId)
+					end
+				end
+			end
+		end
+	)
+end -- FMS._TraverseSTMTable()
+
+--- Traverses the specified STM lua table and calls a handler for each group found
+function FMS._TraverseSTMGroups( stmTable, groupHandler_ )
 
 	if (not stmTable) or (type(stmTable) ~= "table") then
-		env.error("FMS._TraverseSTMTable() cannot find a valid lua table.")
+		env.error("FMS._TraverseSTMGroups() cannot find a valid lua table.")
 		return
 	end
+
+	local continue = true
 
 	for coalitionName, coalitionTable in pairs(stmTable.coalition) do
 		_trace("STMPARSE: Processing coalition '"..coalitionName.."'")
@@ -274,20 +375,11 @@ function FMS._TraverseSTMTable( stmTable, groupHandler_, staticHandler_ )
 							local category = FMS.StaticTemplates.UnitCategories[string.lower(categoryName)]
 
 							for _,groupTemplate in pairs(categoryTable) do
-								_trace("STMPARSE: groupTemplate.name=" .. groupTemplate.name)
-								if groupTemplate and groupTemplate.units and type(groupTemplate.units) == 'table' then
-
-									if categoryName ~= "static" then
-										if groupHandler_ and type(groupHandler_) == "function" then
-											groupHandler_(groupTemplate, category, coalitionId, countryId)
-										end
-									else
-										if staticHandler_ and type(staticHandler_) == "function" then
-											staticHandler_(groupTemplate, coalitionId, countryId)
-										end
-									end -- if static
-
-								end -- if groupTemplate and groupTemplate.units then
+								if groupTemplate  then
+									_debug("STMPARSE: groupTemplate.name=" .. groupTemplate.name)
+									continue = groupHandler_(groupTemplate, category, coalitionId, countryId)
+									if continue == false then return end
+								end -- if groupTemplate
 							end -- for groupTemplate in categoryTable
 
 						end -- if (group and group and group and group)
@@ -297,7 +389,28 @@ function FMS._TraverseSTMTable( stmTable, groupHandler_, staticHandler_ )
 		end -- if type(coalitionTable)
 	end -- for coalitionName in staticTemplate.coalition
 
-end -- FMS.RegisterSTMFile()
+end -- FMS._TraverseSTMGroups()
+
+function FMS._GetFirstGroupOrStaticInSTMTable(stmTable, coalition_, categoryName_)
+	local coalition = coalition_ or "blue"
+	local firstCountryTable = stmTable.coalition[coalition].country[1]
+	local categoryTable = firstCountryTable[categoryName_]
+	
+	if not categoryTable then
+		local categoryPrecedence = {"plane", "helicopter", "ship", "vehicle", "static"}
+		for _,category in ipairs(categoryPrecedence) do
+			if firstCountryTable[category] ~= nil then
+				categoryTable = firstCountryTable[category]
+				break
+			end
+		end
+	end
+
+	if not categoryTable then return nil end
+	
+	local groups = categoryTable.group
+	return groups[1]
+end
 
 -------------------------------------------------------------------------------
 -- HELPER FUNCTIONS
@@ -342,4 +455,10 @@ FMS.STATIC_ID = 2000000
 function FMS.GetUniqueStaticID()
 	FMS.STATIC_ID = FMS.STATIC_ID + 1
 	return FMS.STATIC_ID
+end
+
+FMS.StaticTemplates.UniqueCounter = 1
+function FMS.StaticTemplates._GetUniqueCounter()
+	FMS.StaticTemplates.UniqueCounter = FMS.StaticTemplates.UniqueCounter + 1
+	return FMS.StaticTemplates.UniqueCounter
 end
