@@ -324,12 +324,6 @@ function FMS.OpsArea:_buildMenus(showIndividualGroupMenus_)
 		MENU_MISSION_COMMAND:New("Destroy entire zone",    destroyMenu, FMS.OpsArea.destroyAllInZone,     self, self.zone)
 	end
 
-	--- The submenu for performing zone actions
-	self.menus.zonesMenu = MENU_MISSION:New("Zones", self.menus.aoMenu)
-	
-	--- Dictionary of `MENU_MISSION`, keyed by zoneName, for each zone
-	self.menus.zonesSubmenus = {}
-
 	local autoRespawnMenu = MENU_MISSION:New("Auto-Respawn", self.menus.aoMenu)
 	MENU_MISSION_COMMAND:New("Auto-Respawn ON",  autoRespawnMenu, FMS.OpsArea.autoRespawnOn,  self, 10)
 	MENU_MISSION_COMMAND:New("Auto-Respawn OFF", autoRespawnMenu, FMS.OpsArea.autoRespawnOff, self)
@@ -343,6 +337,15 @@ end
 
 function FMS.OpsArea:addSpawnZone(zoneName)
 	self.log:log("Adding zone named: " .. zoneName)
+
+	-- Lazily create the zone menu once we have spawn zones.
+	if not self.menus.zonesMenu then
+		--- The submenu for performing zone actions.
+		self.menus.zonesMenu = MENU_MISSION:New("Zones", self.menus.aoMenu)
+
+		--- Dictionary of `MENU_MISSION`, keyed by zoneName, for each zone
+		self.menus.zonesSubmenus = {}
+	end
 	
 	local zone = ZONE:New(zoneName)
 	self._spawnZones[zoneName] = zone
