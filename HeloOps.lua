@@ -174,7 +174,7 @@ function CTLD:AddVehicleGroups(menuName, groupTemplateNames, crateCount, perCrat
 	local function groupExists(grpName)
 		if GROUP:FindByName(grpName) then return true
 		else
-			self:logWAR("Unable to add troops '" .. menuName .. "' (" .. grpName .. ")")
+			self:logWAR("Unable to add vehicle '" .. menuName .. "' (" .. grpName .. ")")
 			FMS.HeloOps.Error.MissingTroops = FMS.HeloOps.Error.MissingVehicles + 1
 			return false
 		end
@@ -616,8 +616,8 @@ function FMS.HeloOps.RunBuiltInTest()
 		errMsg("An error occurred when trying to initialize CTLD.")
 	end
 
-	local msg = "FMS HeloOps CTLD initialization: " .. (errorFuse and "FAILURE" or "SUCCESS")
-	MESSAGE:New(msg):ToAll()
+	local msg = "FMS HeloOps ".. version .." CTLD BIT: " .. (errorFuse and "FAILURE" or "SUCCESS")
+	MESSAGE:New(msg, 30):ToAll()
 	if errorFuse then FMS.HeloOps.Log.error(msg)
 	else FMS.HeloOps.Log.info(msg) end
 end

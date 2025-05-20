@@ -31,8 +31,8 @@ FMS._init = {
 	}
 }
 
---- pathToMOOSE_ must be *relative* to the missionDirectory
-function FMS.INIT(missionDirectory, pathToMOOSE_)
+--- Returns a boolean indicating whether initialization succeeded or not.
+function FMS.INIT(missionDirectory, pathToMOOSE_, moosePathIsAbsolute_)
 
 	if not missionDirectory then
 		FMS.error("Cannot initialize FMS without a `missionDirectory`. Aborting FMS Initialization.")
@@ -45,13 +45,24 @@ function FMS.INIT(missionDirectory, pathToMOOSE_)
 
 	local initialized = true
 
-	-- Attempt to load MOOSE, if not already loaded.
 	if FMS._init.CheckForMOOSE() then
 		FMS.info("FMS: MOOSE already loaded.", true)
 	else
-		local moosepath = pathToMOOSE_ or "MOOSE_INCLUDE\\Moose_Include_Static\\Moose.lua"
-		FMS.info("FMS: Loading MOOSE from " .. moosepath, true)
-		if FMS.LOAD(moosepath) then
+		-- Attempt to load MOOSE, if not already loaded.
+		local moosePathIsAbsolute = moosePathIsAbsolute_ or false
+		local mooseLoaded = false
+		local mooseDefaultRelativePath = "MOOSE_INCLUDE\\Moose_Include_Static\\Moose.lua"
+		if moosePathIsAbsolute then
+			local abspath = pathToMOOSE_ or ("C:\\DCS\\"..mooseDefaultRelativePath)
+			FMS.info("FMS: Attempting MOOSE load from absolute path: " .. pathToMOOSE_, true)
+			mooseLoaded = FMS.LOAD_ABS(pathToMOOSE_)
+		else
+			local relpath = pathToMOOSE_ or mooseDefaultRelativePath
+			FMS.info("FMS: Attempting MOOSE load from relative path: " .. relpath, true)
+			mooseLoaded = FMS.LOAD(relpath)
+		end
+
+		if mooseLoaded then
 			initialized = initialized and true
 		else
 			FMS.error("FMS: Failed to dynamically load MOOSE. Aborting FMS Initialization.")
@@ -173,7 +184,7 @@ end
 --- Runs a lua file at the given relative path, relative to the FMS.MISSION_DIR.
 --- This function accepts a relative path, or an absolute path, BUT NOT BOTH!
 function FMS.LOAD(relativePath, absolutePath)
-	local filePath = null
+	local filePath = nil
 	
 	if relativePath then
 		filePath = FMS.PATH(relativePath)
@@ -197,7 +208,7 @@ function FMS.LOAD(relativePath, absolutePath)
 end
 
 function FMS.LOAD_ABS(absolutePath)
-	return FMS.LOAD(null, absolutePath)
+	return FMS.LOAD(nil, absolutePath)
 end
 
 function FMS._init.CheckForMOOSE()
