@@ -422,13 +422,13 @@ end
 
 -- PRIVATE INTERFACE -----------------------------------------------------------
 
-function CTLD:_CTLDAddStaticsCargo(groupTemplateName, massKg)
+function CTLD:_CTLDAddStaticsCargo(groupTemplateName, massKg, submenu)
 	if not STATIC:FindByName(groupTemplateName, false) then
 		self:logWAR("Unable to add static cargo '" .. groupTemplateName .. "'")
 		return
 	end
 	
-	self:AddStaticsCargo(groupTemplateName, massKg)
+	self:AddStaticsCargo(groupTemplateName, massKg, nil, submenu)
 	self:logINF("Added crates/static '" .. groupTemplateName .. "'")
 end
 
