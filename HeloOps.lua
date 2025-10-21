@@ -169,7 +169,7 @@ function CTLD:AddTroopGroups(menuName, groupTemplateNames, troopCount, perTroopM
 end
 
 --- Adds a vehicle group template (or multiple templates) to the "Crates" menu
-function CTLD:AddVehicleGroups(menuName, groupTemplateNames, crateCount, perCrateMassKg)
+function CTLD:AddVehicleGroups(menuName, groupTemplateNames, crateCount, perCrateMassKg, subCategory_)
 
 	local function groupExists(grpName)
 		if GROUP:FindByName(grpName) then return true
@@ -193,11 +193,11 @@ function CTLD:AddVehicleGroups(menuName, groupTemplateNames, crateCount, perCrat
 		groupNames = {groupTemplateNames}
 	end
 	
-	self:AddCratesCargo(menuName, groupNames, CTLD_CARGO.Enum.VEHICLE, crateCount, perCrateMassKg)  
-	self:logINF("Added crates/cargo '" .. menuName .. "'")
+	self:AddCratesCargo(menuName, groupNames, CTLD_CARGO.Enum.VEHICLE, crateCount, perCrateMassKg, nil, subCategory_)  
+	self:logINF("Added crates/cargo '" .. menuName .. "' to submenu '"..(subCategory_ or nil).."'")
 end
 
-function CTLD:AddFARPCrates(menuName, farpGroupTemplateName, crateCount_, perCrateMassKg_)
+function CTLD:AddFARPCrates(menuName, farpGroupTemplateName, crateCount_, perCrateMassKg_, subCategory_)
 	if not GROUP:FindByName(farpGroupTemplateName) then
 		self:logWAR("Unable to add FARP '" .. farpGroupTemplateName .. "'")
 		FMS.HeloOps.Error.MissingFARP = FMS.HeloOps.Error.MissingFARP + 1
@@ -209,7 +209,9 @@ function CTLD:AddFARPCrates(menuName, farpGroupTemplateName, crateCount_, perCra
 		{farpGroupTemplateName},
 		CTLD_CARGO.Enum.FOB,
 		crateCount_ or 2,
-		perCrateMassKg_ or 1500
+		perCrateMassKg_ or 1500,
+		nil,
+		subCategory_ or nil
 		)
 	self:logINF("Added FARP crates '" .. farpGroupTemplateName .. "'")
 end
@@ -429,7 +431,7 @@ function CTLD:_CTLDAddStaticsCargo(groupTemplateName, massKg, submenu)
 	end
 	
 	self:AddStaticsCargo(groupTemplateName, massKg, nil, submenu)
-	self:logINF("Added crates/static '" .. groupTemplateName .. "'")
+	self:logINF("Added crates/static '" .. groupTemplateName .. "' to submenu '"..(submenu or nil).."'")
 end
 
 -- TODO
