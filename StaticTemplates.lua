@@ -30,6 +30,35 @@ local function _trace(msg) _lg(msg, FMS.StaticTemplates.LOG_LEVEL.TRACE) end
 -- UNIVERSAL FUNCTIONS
 -------------------------------------------------------------------------------
 
+--- Registers a static template (file or lua table) MOOSE database.
+-- @param #string templateName Either the filename of the stm file, or the name of the variable holding the static template lua table.
+-- @param #string missionDirPath The *relative* path to the template file, relative to the mission directory. Pass `nil` if loading a lua table.
+-- @param #function groupHandler_ A function to be called for every group found in the template.
+-- @param #function staticHandler_ A function to be called for every static found in the template.
+-- @param #boolean lateActivation_ Pass true or false to override the late activation setting for every group in the template.
+--
+-- NOTES:
+-- 1. `templateName` should be the filename *without* the file extension.
+-- 2. `missionDirPath` is relative to the `FMS.MISSION_DIR` path, which is passed during mission initialization in `FMS.INIT(..)`
+-- 3. This function is not designed to be used in sequence with FMS.SpawnSTM. Use one or the other, but not both.
+-- 4. After calling this function, you are responsible for spawning in your units via some other mechanism.
+-- 5. The group handler function accept the following ordered arguments:
+--      1. the lua table defining the group, as defined in the static template
+--      2. the group's category
+--      3. the group's coalition ID
+--      4. the group's country ID
+--    The static handler function accepts the following ordered arguments:
+--      1. the lua table defining the static, as defined in the static template
+--      2. the static's coalition ID
+--      3. the static's country ID
+--
+-- Example: Load a static template file from disk. C:\\DCS\\Missions\\MyAwesomeMission\\StaticTemplates\\bluefor\MyAwesomeTemplate.stm
+-- FMS.RegisterSTM("MyAwesomeTemplate", "StaticTemplates\\blufor")
+--
+-- Example: Load a static template file embedded in the MIZ.
+-- First, change the file extension of your STM file from .stm to .lua. This is necessary to be able to embed it in a DO SCRIPT trigger.
+-- It's recommended that you edit the file and change the name of the root-level lua variable to something unique. In this example, rename `staticTemplate = {` to `myAwesomeTemplate = {`.
+-- FMS.RegisterSTM("myAwesomeTemplate", nil)
 function FMS.RegisterSTM(templateName, missionDirPath, groupHandler_, staticHandler_, lateActivation_)
 	_info("RegisterSTM(".. (templateName or ("nil")) ..", lateActivation_=" .. dump(lateActivation_) ..")")
 
@@ -45,6 +74,13 @@ function FMS.RegisterSTM(templateName, missionDirPath, groupHandler_, staticHand
 	end
 end
 
+--- Immediately spawns a static template (file or lua table) into the mission.
+-- @param #string templateName Either the filename of the stm file, or the name of the variable holding the static template lua table.
+-- @param #string missionDirPath The *relative* path to the template file, relative to the mission directory. Pass `nil` if loading a lua table.
+-- @param #function spawnedHandler_ A function to be called for every group spawned from the template.
+--
+-- NOTES:
+-- 1. See the documentation above for `FMS.RegisterSTM()`.
 function FMS.SpawnSTM(templateName, missionDirPath, spawnedHandler_)
 	_info("SpawnSTM(".. (templateName or ("nil")) ..")")
 	
@@ -60,6 +96,11 @@ function FMS.SpawnSTM(templateName, missionDirPath, spawnedHandler_)
 	end
 end
 
+--- Traverses a static template (file or lua table) and calls the specified handlers/functions for each group/static.
+-- @param #string templateName Either the filename of the stm file, or the name of the variable holding the static template lua table.
+-- @param #string missionDirPath The *relative* path to the template file, relative to the mission directory. Pass `nil` if loading a lua table.
+-- @param #function groupHandler_ A function to be called for every group found in the template.
+-- @param #function staticHandler_ A function to be called for every static found in the template.
 function FMS.TraverseSTM(templateName, missionDirPath, groupHandler_, staticHandler_)
 	_info("TraverseSTM(".. (templateName or ("nil")) ..")")
 	
@@ -75,6 +116,11 @@ function FMS.TraverseSTM(templateName, missionDirPath, groupHandler_, staticHand
 	end
 end
 
+--- Immediately spawns a static template (file or lua table) into the mission at the specified vec2.
+-- @param #string templateName Either the filename of the stm file, or the name of the variable holding the static template lua table.
+-- @param #string missionDirPath The *relative* path to the template file, relative to the mission directory. Pass `nil` if loading a lua table.
+-- @param vec vec2 The vec2 at which to spawn the template.
+-- @param #function spawnedHandler_ A function to be called for every group spawned from the template.
 function FMS.SpawnSTMAtVec2(templateName, missionDirPath, vec2, spawnedHandler_)
 	_info("SpawnSTMAtVec2(".. (templateName or ("nil")) ..")")
 	
@@ -98,6 +144,7 @@ end
 -- @param #string absolutePath The full absolute file path to the STM file to be registered.
 -- @param #function groupHandler_ A function to be called for every group found in the template file.
 -- @param #function staticHandler_ A function to be called for every static found in the template file.
+-- @param #boolean lateActivation_ Pass true or false to override the late activation setting for every group in the template.
 -- NOTE: The group handler function accept the following ordered arguments:
 --         1. the lua table defining the group, as defined in the static template
 --         2. the group's category
@@ -119,6 +166,7 @@ function FMS.SpawnSTMFile( absolutePath, spawnedHandler_ )
 	FMS.SpawnSTMTable(FMS.LoadFileWithResult(absolutePath), spawnedHandler_)
 end
 
+--- Spawns the contents of the STM file at the specified path, at the specified vec2.
 function FMS.SpawnSTMFileAtVec2( absolutePath, vec2, spawnedHandler_ )
 	_info("SpawnSTMFileAtVec2  <" .. absolutePath .. ">")
 	FMS.SpawnSTMTableAtVec2(FMS.LoadFileWithResult(absolutePath), vec2, spawnedHandler_)
@@ -208,6 +256,7 @@ function FMS.SpawnSTMTable( stmTable, spawnedHandler_ )
 	)
 end
 
+--- Spawns the contents of the specified STM lua table, at the specified vec2.
 function FMS.SpawnSTMTableAtVec2( stmTable, vec2, spawnedHandler_ )
 	_info("SpawnSTMTableAtVec2()")
 
@@ -299,7 +348,7 @@ function FMS.RegisterLatestStaticTemplate( groupHandler_, staticHandler_ )
 	staticTemplate = nil
 end
 
---- Registers the contents of the global `staticTemplate` variable in the MOOSE database
+--- Spawns the contents of the global `staticTemplate` variable in the MOOSE database
 function FMS.SpawnLatestStaticTemplate( groupHandler_, staticHandler_ )
 	if not staticTemplate then return end
 	
