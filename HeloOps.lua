@@ -404,7 +404,14 @@ function CTLD:ConfigureFARP(
 
 			-- Spawn the default MOOSE FARP.
 			local newFarpName = "FARP-"..tostring(FMS.HeloOps.FARP.Count)
-			local spawnedFarpObjects, adfName = UTILS.SpawnFARPAndFunctionalStatics(newFarpName, coord, ENUMS.FARPType.INVISIBLE)
+			local spawnedFarpObjects, adfName = FMS.HeloOps.SpawnFARP({
+				Name = newFarpName,
+				Coordinate = coord,
+				FARPType = ENUMS.FARPType.INVISIBLE,
+				DynamicSpawns = true,
+				HotStart = true
+			})
+
 			local spawnedFarpName = spawnedFarpObjects[1].StaticName
 			FMS.HeloOps.FARP.Count = FMS.HeloOps.FARP.Count + 1
 
@@ -414,12 +421,37 @@ function CTLD:ConfigureFARP(
 			self:logINF(msg)
 			MESSAGE:New(msg, 30):ToAll()
 
-			FMS.HeloOps.FillFARP(spawnedFarpName)
+			-- FMS.HeloOps.FillFARP(spawnedFarpName)
 
 			-- TODO: Do we need to make a loadzone?
 		end
 	end
 
+end
+
+function FMS.HeloOps.SpawnFARP(paramsTable)
+	return UTILS.SpawnFARPAndFunctionalStatics(
+		paramsTable.Name,
+		paramsTable.Coordinate,
+		paramsTable.FARPType or ENUMS.FARPType.INVISIBLE,
+		paramsTable.Coalition,
+		paramsTable.Country,
+		paramsTable.CallSign,
+		paramsTable.Frequency,
+		paramsTable.Modulation,
+		paramsTable.ADF,
+		paramsTable.SpawnRadius,
+		paramsTable.VehicleTemplate,
+		paramsTable.Liquids,
+		paramsTable.Equipment,
+		paramsTable.Airframes,
+		paramsTable.F10Text,
+		paramsTable.DynamicSpawns,
+		paramsTable.HotStart, -- assume hotstart if dynamicSpawn was given
+		paramsTable.NumberPads,
+		paramsTable.SpacingX,
+		paramsTable.SpacingY
+	)
 end
 
 -- PRIVATE INTERFACE -----------------------------------------------------------
