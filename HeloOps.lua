@@ -234,6 +234,14 @@ function CTLD:ScanForZones()
 		local zoneName = _zone:GetName()
 		self:AddCTLDZone(zoneName, CTLD.CargoZoneType.LOAD, SMOKECOLOR.Blue, true, true)
 		self:logINF("Added Load Zone '" .. zoneName .. "'")
+		_zone:DrawZone(
+			-1,         -- coalition, -1=ALL
+			{0, 0.8, 0},    -- Color
+			1,          -- Alpha
+			{0, 1.0, 0},    -- FillColor
+			0.1,        -- FillAlpha
+			3           -- LineType, 3=Dotted
+		)
 	end)
 	
 	local movezones = SET_ZONE:New():FilterPrefixes('Movezone'):FilterOnce()
