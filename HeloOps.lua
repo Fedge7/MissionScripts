@@ -194,7 +194,7 @@ function CTLD:AddVehicleGroups(menuName, groupTemplateNames, crateCount, perCrat
 	end
 	
 	self:AddCratesCargo(menuName, groupNames, CTLD_CARGO.Enum.VEHICLE, crateCount, perCrateMassKg, nil, subCategory_)  
-	self:logINF("Added crates/cargo '" .. menuName .. "' to submenu '"..(subCategory_ or nil).."'")
+	self:logINF("Added crates/cargo '" .. menuName .. "' to submenu '"..(subCategory_ or "nil").."'")
 end
 
 function CTLD:AddFARPCrates(menuName, farpGroupTemplateName, crateCount_, perCrateMassKg_, subCategory_)
@@ -471,7 +471,7 @@ function CTLD:_CTLDAddStaticsCargo(groupTemplateName, massKg, submenu)
 	end
 	
 	self:AddStaticsCargo(groupTemplateName, massKg, nil, submenu)
-	self:logINF("Added crates/static '" .. groupTemplateName .. "' to submenu '"..(submenu or nil).."'")
+	self:logINF("Added crates/static '" .. groupTemplateName .. "' to submenu '"..(submenu or "nil").."'")
 end
 
 -- TODO
