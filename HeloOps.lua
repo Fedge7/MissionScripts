@@ -664,53 +664,10 @@ function FMS.HeloOps.RunBuiltInTest()
 	else FMS.HeloOps.Log.info(msg) end
 end
 
--- Bullshit DCS hack to fix ED's garbage code.
-function FMS.HeloOps.FixFARP(farpName)
-	FMS.HeloOps.Log.info("FixFARP("..farpName..")")
-
-	function check(wh)
-		local ac, liqs, items = wh:GetInventory()
-		for _, liq in pairs(liqs) do
-			if liq > 0 then
-				FMS.HeloOps.Log.info("  - check liquids: GOOD ("..liq..")")
-			else
-				FMS.HeloOps.Log.warning("  - check liquids: BAD")
-				-- TODO: set_liquids(wh, 100)
-			end
-			break
-		end
-		for _, item in pairs(items) do
-			if item then
-				FMS.HeloOps.Log.info("  - check items: GOOD")
-			else
-				FMS.HeloOps.Log.warning("  - check items: BAD")
-				-- TODO: set_items(wh, 500)
-			end
-			break
-		end
-	end
-	
-	local ab = AIRBASE:FindByName(farpName)
-	
-	if ab == nil then
-		FMS.HeloOps.Log.error("FixFARP: Cannot find airbase named '"..farpName.."'.")
-		return
-	end
-	
-	local wh = ab:GetStorage()
-
-	TIMER:New(function() FMS.HeloOps._SetFARPLiquids(wh, 0)   end):Start(1)
-	TIMER:New(function() FMS.HeloOps._SetFARPItems(wh, 0)     end):Start(2)
-	TIMER:New(function() FMS.HeloOps._SetFARPLiquids(wh, 100) end):Start(3)
-	TIMER:New(function() FMS.HeloOps._SetFARPItems(wh, 500)   end):Start(4)
-	TIMER:New(function() check(wh)                            end):Start(5)
-	TIMER:New(function() MESSAGE:New(farpName.."' has been supplied."):ToAll() end):Start(6)
-end
-
 function FMS.HeloOps.FillFARP(farpName, liquids_, items_)
 	local ab = AIRBASE:FindByName(farpName)
 	if ab == nil then
-		FMS.HeloOps.Log.error("FixFARP: Cannot find airbase named '"..farpName.."'.")
+		FMS.HeloOps.Log.error("FillFARP: Cannot find airbase named '"..farpName.."'.")
 		return
 	end
 	
