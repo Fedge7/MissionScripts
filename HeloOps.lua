@@ -21,12 +21,13 @@ Modifications:
 	- v1.0    Fedge            Cleanup.
 	- v2.0    Fedge            Combines HeloOps and HeloOpsConfig scripts.
 	- v2.1    Fedge            Bugfix for FARPs. Adds SpawnAndFillSTMFARPAtVec2().
+	- v2.2    Fedge            Adds dynamic spawn for CTLD FARPs. Subcategories for CTLD crates. Tweaks to CSAR. Removes FARP supply bugfix. Loadzones drawn on map.
 
 TODO:
 	- CSAR random missions
 ]]
 
-local version = "v2.1"
+local version = "v2.2"
 local logPrefix = "FMS.HeloOps"
 
 env.info("FMS.HeloOps " .. version .. " loading.")
@@ -194,7 +195,7 @@ function CTLD:AddVehicleGroups(menuName, groupTemplateNames, crateCount, perCrat
 	end
 	
 	self:AddCratesCargo(menuName, groupNames, CTLD_CARGO.Enum.VEHICLE, crateCount, perCrateMassKg, nil, subCategory_)  
-	self:logINF("Added crates/cargo '" .. menuName .. "' to submenu '"..(subCategory_ or nil).."'")
+	self:logINF("Added crates/cargo '" .. menuName .. "' to submenu '"..(subCategory_ or "nil").."'")
 end
 
 function CTLD:AddFARPCrates(menuName, farpGroupTemplateName, crateCount_, perCrateMassKg_, subCategory_)
@@ -236,9 +237,9 @@ function CTLD:ScanForZones()
 		self:logINF("Added Load Zone '" .. zoneName .. "'")
 		_zone:DrawZone(
 			-1,         -- coalition, -1=ALL
-			{0, 0.8, 0},    -- Color
+			{0, 0.8, 0},-- Color
 			1,          -- Alpha
-			{0, 1.0, 0},    -- FillColor
+			{0, 1.0, 0},-- FillColor
 			0.1,        -- FillAlpha
 			3           -- LineType, 3=Dotted
 		)
@@ -471,7 +472,7 @@ function CTLD:_CTLDAddStaticsCargo(groupTemplateName, massKg, submenu)
 	end
 	
 	self:AddStaticsCargo(groupTemplateName, massKg, nil, submenu)
-	self:logINF("Added crates/static '" .. groupTemplateName .. "' to submenu '"..(submenu or nil).."'")
+	self:logINF("Added crates/static '" .. groupTemplateName .. "' to submenu '"..(submenu or "nil").."'")
 end
 
 -- TODO
@@ -495,6 +496,21 @@ end
 -- CSAR
 -- -----------------------------------------------------------------------------
 
+--- Initializes a new CSAR instance with the specified parameters.
+-- @param #number coalitionSide_ Coalition side. Can also be passed as a string "red", "blue" or "neutral". Default is `coalition.side.BLUE`.
+-- @param #string alias_ An *optional* alias how this object is called in the logs etc. Default is "CSAR Corps".
+-- @param #table prefixes_ A table of prefixes enumerating the groups that can perform CSAR missions. Defaults to nil, which enables all valid groups to perform CSAR missions.
+-- @param #string downedPilotGroupTemplateName_ Name of the late activated unit standing in for the downed pilot. Default is a "Soldier M4" unit.
+-- @param #function configFunction_ A configuration function that allows the caller to configure the CSAR instance before it is started.
+-- @return #CSAR self
+-- @usage
+--     CSARMedevac = FMS.HeloOps.NewCSAR(coalition.side.BLUE, "Medical Corps", {"Dustoff", "Beaver", "Huey", "Flipper"}, "Downed Pilot", function(csar)
+--          csar.csarOncrash = false
+--          csar.enableForAI = false
+--          csar.allowDownedPilotCAcontrol = false
+--     end)
+-- If a configuration handler is passed via `configFunction_`, the default CSAR configuration will *NOT* be applied.
+-- So you will need to call `:ApplyDefaultConfiguration()` in your handler if you want that functionality.
 function FMS.HeloOps.NewCSAR(coalitionSide_, alias_, prefixes_, downedPilotGroupTemplateName_, configFunction_)
 	local _coalition = coalitionSide_ or coalition.side.BLUE
 	local _alias = alias_ or "CSAR Corps"
@@ -528,7 +544,7 @@ function FMS.HeloOps.NewCSAR(coalitionSide_, alias_, prefixes_, downedPilotGroup
 	function _csar_instance:OnAfterPilotDown(from, event, to, spawnedgroup, frequency, groupname, coordinates_text)
 		--TODO: Check that this is actually a UH-60 ;)
 		USERSOUND:New( "CSAR.ogg" ):ToCoalition( coalition.side.BLUE )
-		self:logINF("Spawned downed pilot: " .. groupname)
+		self:logINF("Spawned downed pilot: " .. groupname..". "..coordinates_text)
 	end
 
 	if configFunction_ ~= nil then
@@ -543,8 +559,6 @@ function FMS.HeloOps.NewCSAR(coalitionSide_, alias_, prefixes_, downedPilotGroup
 end
 
 function CSAR:ApplyDefaultConfiguration()
-	-- self.useprefix = false -- Handled by the OA.HeloOps:NewCSAR() function
-
 	self.csarOncrash = true -- If set to true, will generate a downed pilot when a plane crashes as well.
 	self.enableForAI = true
 	self.allowDownedPilotCAcontrol = true
@@ -556,6 +570,7 @@ function CSAR:ApplyDefaultConfiguration()
 	self.pilotmustopendoors = false
 	self.rescuehoverheight = 30
 	self.rescuehoverdistance = 10
+	self.AllowIRStrobe = true
 
 	self.suppressmessages = false -- false by default
 	self.immortalcrew = true -- true by default
@@ -592,11 +607,11 @@ function CSAR:csarHotLZMenuCommand(menuText, zoneName, parentMenu_)
 	end)
 end
 
-function CSAR:casevacMenuCommand(menuText, zoneName, parentMenu_)
+function CSAR:casevacMenuCommand(menuText, zoneName, parentMenu_, hideMessage_)
 	
 	function _spawnMedevacInZone(zoneName)
 		local coord = COORDINATE:NewFromVec3(ZONE:New(zoneName):GetRandomPointVec3())	
-		self:SpawnCASEVAC(coord, coalition.side.BLUE, nil, true)
+		self:SpawnCASEVAC(coord, coalition.side.BLUE, nil, hideMessage_)
 	end
 	
 	-- TODO: This is a MENU_MISSION. it should probably be a coalition/group menu.
@@ -664,53 +679,10 @@ function FMS.HeloOps.RunBuiltInTest()
 	else FMS.HeloOps.Log.info(msg) end
 end
 
--- Bullshit DCS hack to fix ED's garbage code.
-function FMS.HeloOps.FixFARP(farpName)
-	FMS.HeloOps.Log.info("FixFARP("..farpName..")")
-
-	function check(wh)
-		local ac, liqs, items = wh:GetInventory()
-		for _, liq in pairs(liqs) do
-			if liq > 0 then
-				FMS.HeloOps.Log.info("  - check liquids: GOOD ("..liq..")")
-			else
-				FMS.HeloOps.Log.warning("  - check liquids: BAD")
-				-- TODO: set_liquids(wh, 100)
-			end
-			break
-		end
-		for _, item in pairs(items) do
-			if item then
-				FMS.HeloOps.Log.info("  - check items: GOOD")
-			else
-				FMS.HeloOps.Log.warning("  - check items: BAD")
-				-- TODO: set_items(wh, 500)
-			end
-			break
-		end
-	end
-	
-	local ab = AIRBASE:FindByName(farpName)
-	
-	if ab == nil then
-		FMS.HeloOps.Log.error("FixFARP: Cannot find airbase named '"..farpName.."'.")
-		return
-	end
-	
-	local wh = ab:GetStorage()
-
-	TIMER:New(function() FMS.HeloOps._SetFARPLiquids(wh, 0)   end):Start(1)
-	TIMER:New(function() FMS.HeloOps._SetFARPItems(wh, 0)     end):Start(2)
-	TIMER:New(function() FMS.HeloOps._SetFARPLiquids(wh, 100) end):Start(3)
-	TIMER:New(function() FMS.HeloOps._SetFARPItems(wh, 500)   end):Start(4)
-	TIMER:New(function() check(wh)                            end):Start(5)
-	TIMER:New(function() MESSAGE:New(farpName.."' has been supplied."):ToAll() end):Start(6)
-end
-
 function FMS.HeloOps.FillFARP(farpName, liquids_, items_)
 	local ab = AIRBASE:FindByName(farpName)
 	if ab == nil then
-		FMS.HeloOps.Log.error("FixFARP: Cannot find airbase named '"..farpName.."'.")
+		FMS.HeloOps.Log.error("FillFARP: Cannot find airbase named '"..farpName.."'.")
 		return
 	end
 	
