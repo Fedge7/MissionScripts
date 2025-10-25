@@ -21,12 +21,13 @@ Modifications:
 	- v1.0    Fedge            Cleanup.
 	- v2.0    Fedge            Combines HeloOps and HeloOpsConfig scripts.
 	- v2.1    Fedge            Bugfix for FARPs. Adds SpawnAndFillSTMFARPAtVec2().
+	- v2.2    Fedge            Adds dynamic spawn for CTLD FARPs. Subcategories for CTLD crates. Tweaks to CSAR. Removes FARP supply bugfix. Loadzones drawn on map.
 
 TODO:
 	- CSAR random missions
 ]]
 
-local version = "v2.1"
+local version = "v2.2"
 local logPrefix = "FMS.HeloOps"
 
 env.info("FMS.HeloOps " .. version .. " loading.")
