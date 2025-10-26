@@ -88,6 +88,22 @@ function FMS.PrettyExplosion(coord)
 	TIMER:New(randFlares, r2):Start(0.4)
 end
 
+function FMS.GetSceneryInZoneOfType(zone, sceneryTypeNames)
+	local sceneryObjects = {}
+
+	for _,typeName in ipairs(sceneryTypeNames) do
+		local objs = zone:GetScannedSceneryType(typeName)
+		if objs then
+			for k, sceneryObject in pairs( objs ) do 
+				if false then env.info(k.."  "..sceneryObject:GetTypeName()) end
+				sceneryObjects[k] = sceneryObject
+			end
+		end
+	end
+
+	return sceneryObjects
+end
+
 -----------------------------------------------------------------------------------------------------------------------
 --[[ MOOSE GROUP EXTENSIONS ]]-----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------------------------
