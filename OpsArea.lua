@@ -562,6 +562,7 @@ function FMS.OpsArea:showMapMarker(uncertaintyOrVec2_)
 end
 
 function FMS.OpsArea:removeMapMarker()
+	self.log:log("Removing marker from zone " .. self.zone:GetName(), LOG.Level.DEBUG)
 	if self.marker then
 		self.marker:Remove()
 	end
@@ -682,6 +683,8 @@ function FMS.OpsArea:destroyAllInZone( zone, coalitions_ )
 		:FilterCoalitions(coals)
 		:FilterOnce()
 		:ForEachStatic(function(_stc) _stc:Destroy(false) end)
+
+	self:removeMapMarker()
 end
 
 --- Destroys all alive groups that have been spawned in by one of this AO's spawners.
@@ -704,6 +707,8 @@ function FMS.OpsArea:destroySpawnedGroups(coalition_)
 			end
 		end)
 	end
+
+	self:removeMapMarker()
 end
 
 function FMS.OpsArea:isAlive()
@@ -736,6 +741,11 @@ function FMS.OpsArea:_afterSpawnGroup(_spawnedGroup)
 	self.alive = true
 
 	self.log:log("Spawned " .. _spawnedGroup:GetName(), LOG.Level.TRACE)
+
+	local suppressedGroup = SUPPRESSION:New(_spawnedGroup)
+	suppressedGroup:Fallback(true)
+	suppressedGroup:Takecover(true)
+	suppressedGroup:__Start(5)
 
 	-- TODO: There has got to be a better way to determine if an entire group is dead!
 	local ao = self
