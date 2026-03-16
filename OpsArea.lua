@@ -742,11 +742,6 @@ function FMS.OpsArea:_afterSpawnGroup(_spawnedGroup)
 
 	self.log:log("Spawned " .. _spawnedGroup:GetName(), LOG.Level.TRACE)
 
-	local suppressedGroup = SUPPRESSION:New(_spawnedGroup)
-	suppressedGroup:Fallback(true)
-	suppressedGroup:Takecover(true)
-	suppressedGroup:__Start(5)
-
 	-- TODO: There has got to be a better way to determine if an entire group is dead!
 	local ao = self
 	_spawnedGroup:HandleEvent(EVENTS.Dead)
