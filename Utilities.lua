@@ -14,6 +14,35 @@ Dependencies:
 if not FMS then FMS = {} end -- FMS Namespace
 FMS.Utilities = {}          -- FMS Module Name
 
+--- Configures the "Simple Mission Restart" hook script to restart this mission. Requires `smrGUI.lua` script to be installed in `Scripts\Hooks`.
+-- @param #secondsToRestart secondsToRestart The number of seconds until the mission should restart. Default is 28800 (8hrs).
+-- @param #restartWarnings secondsToRestart An array of countdown times until a restart warning is displayed to players. Default is {900,300,60} (15m, 5m, 1m).
+function FMS.EnableSimpleMissionRestart(secondsToRestart, restartWarnings)
+	local secondsToRestart = secondsToRestart or 28800
+	local restartWarnings = restartWarnings or {900,300,60}
+
+	env.info("Automatic mission restart enabled after "..tostring(secondsToRestart).." seconds.")
+	FMS.restartTime = timer.getTime() + secondsToRestart
+
+	local function SMRRestartWarning()
+		local timeToRestart = FMS.restartTime - timer.getTime()
+		local msg = "Mission restart in "..tostring(timeToRestart).." seconds!"
+		trigger.action.outText(msg, 30)
+		env.info(msg)
+	end
+	for _,secs in ipairs(restartWarnings) do
+		timer.scheduleFunction(SMRRestartWarning, {}, FMS.restartTime - secs)
+	end
+	-- timer.scheduleFunction(SMRRestartWarning, {}, FMS.restartTime - 20)
+	-- timer.scheduleFunction(SMRRestartWarning, {}, FMS.restartTime - 10)
+	timer.scheduleFunction(FMS.SMRRestart, {}, FMS.restartTime)
+end
+
+function FMS.SMRRestart()
+	env.info("Setting simpleMissionRestart flag to 1. Restarting mission.")
+	trigger.action.setUserFlag("simpleMissionRestart", 1)
+end
+
 --- Searches for and removes static objects from the mission with names prefixed by `BLOCKER`.
 -- Designed to be used for blocking certain spawn locations on the supercarrier.
 -- @param DCS#coalition.side coalition_ The coalition side for which to remove blocker statics.
