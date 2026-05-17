@@ -59,6 +59,9 @@ end
 -- @param #string zoneName_ The name of the zone in the ME that defines this OpsArea. Optional. If not specified, a zone will created for you that contains all the STM's groups. Passing empty string (i.e. `""`) will surpress the automatic creation of a zone.
 -- @param #string spawnZonePrefix Will associate any trigger zones defined in the ME with this prefix as part of this OpsArea. Optional.
 -- @param #boolean showInMenu_ If true, adds a menu to the "Area of Operations" F10 menu for this AO. Optional, defaults to true.
+-- @param #boolean marker_ If true, shows a marker on the F10 map for this OpsArea. Optional, defaults to true.
+-- @param #boolean showIndividualGroupMenus_ If true, shows a spawn menu entry for each individual group in this OpsArea. Optional, defaults to true.
+-- @param #boolean delayMenuCreation_ EXPERIMENTAL: If true, shows delays the creation of the menu structure for this OpsArea. Optional, defaults to false.
 function FMS.OpsArea:NewFromSTM( areaName, templateName, relPath_, zoneName_, spawnZonePrefix_, showInMenu_, marker_, showIndividualGroupMenus_, delayMenuCreation_)
 
 	local ao = FMS.OpsArea:_New(areaName)
@@ -741,11 +744,6 @@ function FMS.OpsArea:_afterSpawnGroup(_spawnedGroup)
 	self.alive = true
 
 	self.log:log("Spawned " .. _spawnedGroup:GetName(), LOG.Level.TRACE)
-
-	local suppressedGroup = SUPPRESSION:New(_spawnedGroup)
-	suppressedGroup:Fallback(true)
-	suppressedGroup:Takecover(true)
-	suppressedGroup:__Start(5)
 
 	-- TODO: There has got to be a better way to determine if an entire group is dead!
 	local ao = self
