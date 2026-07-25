@@ -145,10 +145,25 @@ function FMS.AirRange:_init(rangeZone, spawnVec2, waypointVec2_)
 	MENU_MISSION_COMMAND:New("30,000 ft", altMenu, setAltitudeFt, 30000)
 	setAltitudeFt(15000)
 
+	MENU_MISSION_COMMAND:New("Remove Junk (!EXPERIMENTAL!)", self.rangeMenu, FMS.AirRange._removeJunk, self)
+
 	-- Look for and destroy leakers periodically
 	SCHEDULER:New(self, FMS.AirRange._destroyAllLeakers, {}, 60, 60)
 	
 	self:drawOnMap()
+
+	-- Remove pilot and parachute, getting rid of the annoying map markers.
+	-- Unfortunately, the ejection seat cannot be removed with scripting, maybe ZONE_RADIUS:RemoveJunk() on a schedule timer will work as a catch all?
+	EjectionEventHandler = EVENTHANDLER:New()
+	EjectionEventHandler:HandleEvent(EVENTS.DiscardChairAfterEjection)
+	function EjectionEventHandler:OnEventDiscardChairAfterEjection( EventData )
+		env.info("Handling Ejection")
+		local event=EventData --Core.Event#EVENTDATA
+		if event.initiator or event.target then --Does seat or pilot exist?
+			Unit.destroy(event.initiator) --Ejection seat object (sometimes)
+			Unit.destroy(event.target) --Pilot object
+		end
+	end
 
 	self:log("Air Range initialization complete: "..self.name)
 end
@@ -259,4 +274,19 @@ function FMS.AirRange:_spawn(spawnObj, unitCount)
 	-- Range is hot
 	self.active = true
 	
+end
+
+function FMS.AirRange:_removeJunk()
+	env.info("Calling `world.removeJunk()`")
+
+	if not self.zone then return end
+
+	local radius = self.zone:GetRadius()
+	local vec3 = self.zone:GetVec3()
+	local volS = {
+		id = world.VolumeType.SPHERE,
+		params = {point = vec3, radius = radius}
+	}
+	local n = world.removeJunk(volS)
+	env.info("removeJunk - removed objects count: ".. n)
 end
