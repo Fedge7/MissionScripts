@@ -592,7 +592,7 @@ function FMS.OpsArea:spawnAll()
 	for _,smoke in ipairs(self._smokeEffects) do
 		self.log:log("Spawning smoke at " .. smoke.x .. ", " .. smoke.y, LOG.Level.DEBUG)
 		COORDINATE:NewFromVec2({x=smoke.x, y=smoke.y})
-			:BigSmokeAndFire(smoke.effectPreset, smoke.effectTransparency, smoke.name)
+			:BigSmokeAndFire(smoke.effectPreset, smoke.effectTransparency, nil, nil, smoke.name)
 	end
 
 	self:showMapMarker()
